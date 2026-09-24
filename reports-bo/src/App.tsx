@@ -128,20 +128,32 @@ function NavChild({ label }: { label: string }) {
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
-  const [visible, setVisible] = useState(false);
+  const [tooltip, setTooltip] = useState<{ alignRight: boolean; maxWidth: number } | null>(null);
+
+  function showTooltip(event: React.MouseEvent<HTMLDivElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const leftSpace = bounds.right - 16;
+    const rightSpace = window.innerWidth - bounds.left - 16;
+    const alignRight = leftSpace > rightSpace;
+    setTooltip({ alignRight, maxWidth: Math.max(0, alignRight ? leftSpace : rightSpace) });
+  }
+
   return (
     <div
       className="relative inline-flex"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
+      onMouseEnter={showTooltip}
+      onMouseLeave={() => setTooltip(null)}
     >
       {children}
-      {visible && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-[6px] z-50 pointer-events-none">
-          <div className="bg-[#22201f] text-white font-['Inter:Regular'] text-[12px] leading-[16px] px-[8px] py-[6px] rounded-[6px] whitespace-nowrap shadow-lg">
+      {tooltip && (
+        <div
+          className={`absolute bottom-full mb-[6px] z-50 pointer-events-none w-max ${tooltip.alignRight ? "right-0" : "left-0"}`}
+          style={{ maxWidth: tooltip.maxWidth }}
+        >
+          <div className="bg-[#22201f] text-white font-['Inter:Regular'] text-[12px] leading-[16px] px-[8px] py-[6px] rounded-[6px] whitespace-normal break-words shadow-lg">
             {text}
           </div>
-          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#22201f]" />
+          <div className={`absolute top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#22201f] ${tooltip.alignRight ? "right-[8px]" : "left-[8px]"}`} />
         </div>
       )}
     </div>
@@ -350,8 +362,8 @@ function DateDropdown({
               className="flex gap-[10px] items-start px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
             >
               <div className="flex flex-col flex-1 text-left">
-                <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]">{opt.label}</span>
-                {dateStr && <span className="font-['Inter:Regular'] text-[#bbbab6] text-[12px] leading-[16px] mt-[1px]">{dateStr}</span>}
+                <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{opt.label}</span>
+                {dateStr && <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px] mt-[1px]">{dateStr}</span>}
               </div>
               {selected === opt.id && <img alt="" className="block shrink-0 size-[16px] mt-[2px]" src={imgCheck} />}
             </button>
@@ -385,6 +397,9 @@ function fmtDate(d: Date) {
 }
 function fmtShort(d: Date) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+function lowercaseFirstLetter(text: string) {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 function addDays(d: Date, n: number) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r;
@@ -499,7 +514,7 @@ function getDateRangeLabel(id: string, _dateId?: string): string {
 // ─── Compare To Dropdown ──────────────────────────────────────────────────────
 
 const COMPARE_TO_OPTIONS: Record<string, Array<{ id: string; label: string }>> = {
-  "today":          [{ id: "last-same-day", label: `last ${TODAY_NAME}` }, { id: "yesterday", label: "Yesterday" }, { id: "last-week-same-day", label: "Last week (same day)" }, { id: "last-year-same-day", label: "Last year (same day)" }],
+  "today":          [{ id: "last-same-day", label: "Last Thursday" }, { id: "yesterday", label: "Yesterday" }, { id: "last-week-same-day", label: "Last week (same day)" }, { id: "last-year-same-day", label: "Last year (same day)" }],
   "yesterday":      [{ id: "day-before", label: "Day before yesterday" }, { id: "last-week-same-day", label: `Last ${YESTERDAY_NAME}` }, { id: "last-year-same-day", label: "Last year (same day)" }],
   "past-week":      [{ id: "prev-week", label: "Previous week" }, { id: "same-week-last-year", label: "Same week last year" }],
   "month-to-date":  [{ id: "prev-month", label: "Previous month to date" }, { id: "same-period-last-year", label: "Same period last year" }],
@@ -524,7 +539,7 @@ function CompareToDropdown({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useDropdownClose(ref, onClose);
-  const options = COMPARE_TO_OPTIONS[dateId] ?? COMPARE_TO_OPTIONS["today"];
+  const options = [{ id: "none", label: "None" }, ...(COMPARE_TO_OPTIONS[dateId] ?? COMPARE_TO_OPTIONS["today"])];
 
   return (
     <div
@@ -541,8 +556,8 @@ function CompareToDropdown({
               className="flex gap-[10px] items-start px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
             >
               <div className="flex flex-col flex-1 text-left">
-                <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]">{opt.label}</span>
-                {dateStr && <span className="font-['Inter:Regular'] text-[#bbbab6] text-[12px] leading-[16px] mt-[1px]">{dateStr}</span>}
+                <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{opt.label}</span>
+                {dateStr && <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px] mt-[1px]">{dateStr}</span>}
               </div>
               {selected === opt.id && <img alt="" className="block shrink-0 size-[16px] mt-[2px]" src={imgCheck} />}
             </button>
@@ -710,20 +725,20 @@ function InfoIcon({ tooltip }: { tooltip: string }) {
 // ─── Hourly Sales Chart ───────────────────────────────────────────────────────
 
 const HALF_HOURS = [
-  "7:00","7:30","8:00","8:30","9:00","9:30","10:00","10:30",
-  "11:00","11:30","12:00","12:30","1:00","1:30","2:00","2:30",
+  "7:00 AM","7:30 AM","8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM","10:30 AM",
+  "11:00 AM","11:30 AM","12:00 PM","12:30 PM","1:00 PM","1:30 PM","2:00 PM","2:30 PM",
 ];
 
 const CURRENT_DATA = [120,185,310,420,510,580,640,690,720,760,810,770,680,590,480,320];
 const PREV_DATA    = [100,155,270,360,430,490,530,570,600,630,670,640,580,510,420,280];
 
-function HourlySalesChart({ compareLabel, isRefreshing }: { compareLabel: string; isRefreshing?: boolean }) {
+function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { compareLabel: string; showComparison: boolean; isRefreshing?: boolean }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const W = 600, H = 140;
+  const W = 600, H = 161;
   const PAD_T = 8, PAD_B = 4, PAD_L = 0, PAD_R = 0;
   const Y_LABEL_W = 36;
-  const maxVal = Math.max(...CURRENT_DATA, ...PREV_DATA);
+  const maxVal = Math.max(...(showComparison ? [...CURRENT_DATA, ...PREV_DATA] : CURRENT_DATA));
   const Y_TICKS = [0.25, 0.5, 0.75, 1];
 
   function xv(i: number) {
@@ -739,11 +754,6 @@ function HourlySalesChart({ compareLabel, isRefreshing }: { compareLabel: string
   function makeLine(data: number[]) {
     return data.map((v, i) => `${xv(i)},${yv(v)}`).join(" ");
   }
-  function makeArea(data: number[]) {
-    const pts = data.map((v, i) => `${xv(i)},${yv(v)}`).join(" ");
-    return `${xv(0)},${H} ${pts} ${xv(data.length - 1)},${H}`;
-  }
-
   const tooltipX = hovered !== null ? xPct(hovered) : 0;
   const curY = hovered !== null ? (yv(CURRENT_DATA[hovered]) / H) * 100 : 0;
   const prevY = hovered !== null ? (yv(PREV_DATA[hovered]) / H) * 100 : 0;
@@ -783,36 +793,23 @@ function HourlySalesChart({ compareLabel, isRefreshing }: { compareLabel: string
           preserveAspectRatio="none"
           onMouseLeave={() => setHovered(null)}
         >
-          <defs>
-            <linearGradient id="curGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#1e72c4" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#1e72c4" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="prevGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#bbbab6" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="#bbbab6" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
           {/* Grid lines */}
           {Y_TICKS.map((f) => {
             const y = PAD_T + (1 - f) * (H - PAD_T - PAD_B);
             return <line key={f} x1={0} y1={y} x2={W} y2={y} stroke="#e3e2dd" strokeWidth="0.6" />;
           })}
 
-          {/* Previous period area + line */}
-          <polygon points={makeArea(PREV_DATA)} fill="url(#prevGrad)" />
-          <polyline points={makeLine(PREV_DATA)} fill="none" stroke="#bbbab6" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Previous period line */}
+          {showComparison && <polyline points={makeLine(PREV_DATA)} fill="none" stroke="#f5a03b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
 
-          {/* Current period area + line */}
-          <polygon points={makeArea(CURRENT_DATA)} fill="url(#curGrad)" />
-          <polyline points={makeLine(CURRENT_DATA)} fill="none" stroke="#1e72c4" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Current period line */}
+          <polyline points={makeLine(CURRENT_DATA)} fill="none" stroke="#58aaf5" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
 
           {/* Hover vertical line */}
           {hovered !== null && (
             <line
               x1={xv(hovered)} y1={0} x2={xv(hovered)} y2={H}
-              stroke="#22201f" strokeWidth="0.8" strokeDasharray="3,3"
+              stroke="#d6d5d1" strokeWidth="0.8"
             />
           )}
 
@@ -830,14 +827,14 @@ function HourlySalesChart({ compareLabel, isRefreshing }: { compareLabel: string
           })}
         </svg>
 
-        {hovered !== null && (
+        {showComparison && hovered !== null && (
           <>
             <span
-              className="pointer-events-none absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-[#bbbab6] bg-white"
+              className="pointer-events-none absolute size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f5a03b]"
               style={{ left: `${tooltipX}%`, top: `${prevY}%` }}
             />
             <span
-              className="pointer-events-none absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-[#1e72c4] bg-white"
+              className="pointer-events-none absolute size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#58aaf5]"
               style={{ left: `${tooltipX}%`, top: `${curY}%` }}
             />
           </>
@@ -859,15 +856,15 @@ function HourlySalesChart({ compareLabel, isRefreshing }: { compareLabel: string
             >
               <span className="font-['Inter:Medium'] text-[#22201f] text-[12px] leading-[16px]">{HALF_HOURS[hovered]}</span>
               <div className="flex items-center gap-[8px]">
-                <span className="inline-block size-[8px] rounded-full bg-[#1e72c4] shrink-0" />
+                <span className="inline-block size-[8px] rounded-full bg-[#58aaf5] shrink-0" />
                 <span className="font-['Inter:Regular'] text-[#22201f] text-[13px] leading-[18px]">Today</span>
                 <span className="font-['Inter:Medium'] text-[#22201f] text-[13px] leading-[18px] ml-auto pl-[12px]">${CURRENT_DATA[hovered]}</span>
               </div>
-              <div className="flex items-center gap-[8px]">
-                <span className="inline-block size-[8px] rounded-full bg-[#bbbab6] shrink-0" />
-                <span className="font-['Inter:Regular'] text-[#62615d] text-[13px] leading-[18px] flex-1 min-w-0 truncate">{compareLabel}</span>
-                <span className="font-['Inter:Medium'] text-[#62615d] text-[13px] leading-[18px] ml-auto pl-[12px]">${PREV_DATA[hovered]}</span>
-              </div>
+              {showComparison && <div className="flex items-center gap-[8px]">
+                <span className="inline-block size-[8px] rounded-full bg-[#f5a03b] shrink-0" />
+                <span className="font-['Inter:Regular'] text-[#22201f] text-[13px] leading-[18px] flex-1 min-w-0 truncate">{compareLabel.charAt(0).toUpperCase() + compareLabel.slice(1)}</span>
+                <span className="font-['Inter:Medium'] text-[#22201f] text-[13px] leading-[18px] ml-auto pl-[12px]">${PREV_DATA[hovered]}</span>
+              </div>}
             </div>
           );
         })()}
@@ -900,7 +897,7 @@ function Sk({ w, h = "h-[16px]" }: { w: string; h?: string }) {
   return <span className={`skeleton ${w} ${h} align-middle`} />;
 }
 
-function KpiCard({ label, value, change, changeColor, compareLabel, isRefreshing }: { label: string; value: string; change?: string; changeColor?: string; compareLabel?: string; isRefreshing?: boolean }) {
+function KpiCard({ label, value, change, changeColor, compareLabel, showComparison, isRefreshing }: { label: string; value: string; change?: string; changeColor?: string; compareLabel?: string; showComparison: boolean; isRefreshing?: boolean }) {
   return (
     <WidgetCard className="flex-1 min-w-0">
     <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
@@ -914,12 +911,12 @@ function KpiCard({ label, value, change, changeColor, compareLabel, isRefreshing
           ? <Sk w="w-[100px]" h="h-[32px]" />
           : <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] block w-full">{value}</span>
         }
-        {change && (
+        {showComparison && change && (
           isRefreshing
             ? <Sk w="w-[160px]" h="h-[16px]" />
             : <p className="text-[0px] leading-[0] w-full">
                 <span className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[24px] ${changeColor}`}>{change} </span>
-                <span className="text-[#62615d] text-[14px] leading-[20px]">vs {compareLabel ?? "previous period"}</span>
+                <span className="text-[#62615d] text-[14px] leading-[20px]">vs {compareLabel ? lowercaseFirstLetter(compareLabel) : "previous period"}</span>
               </p>
         )}
       </div>
@@ -928,7 +925,7 @@ function KpiCard({ label, value, change, changeColor, compareLabel, isRefreshing
   );
 }
 
-function ProductRow({ rank, name, count, change, positive, isRefreshing }: { rank: number; name: string; count: number; change: string; positive: boolean; isRefreshing?: boolean }) {
+function ProductRow({ rank, name, count, change, positive, showComparison, isRefreshing }: { rank: number; name: string; count: number; change: string; positive: boolean; showComparison: boolean; isRefreshing?: boolean }) {
   return (
     <>
       <div className="flex gap-[8px] items-center px-[4px] w-full">
@@ -937,7 +934,7 @@ function ProductRow({ rank, name, count, change, positive, isRefreshing }: { ran
           <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] flex-1 min-w-0 truncate">{name}</span>
         </div>
         {isRefreshing ? <Sk w="w-[28px]" /> : <span className="font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[24px] whitespace-nowrap">{count}</span>}
-        {isRefreshing ? <Sk w="w-[44px]" /> : <span className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[60px] ${positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{change}</span>}
+        {showComparison && (isRefreshing ? <Sk w="w-[44px]" /> : <span className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[60px] ${positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{change}</span>)}
       </div>
       <div className="relative h-0 w-full shrink-0">
         <div className="absolute inset-[-1px_0_0_0]">
@@ -948,7 +945,7 @@ function ProductRow({ rank, name, count, change, positive, isRefreshing }: { ran
   );
 }
 
-function TopListCard({ title, items, compareLabel, isRefreshing }: { title: string; compareLabel: string; isRefreshing?: boolean; items: Array<{ rank: number; name: string; count: number; change: string; positive: boolean }> }) {
+function TopListCard({ title, items, compareLabel, showComparison, isRefreshing }: { title: string; compareLabel: string; showComparison: boolean; isRefreshing?: boolean; items: Array<{ rank: number; name: string; count: number; change: string; positive: boolean }> }) {
   const top = items[0];
   return (
     <WidgetCard className="flex-1 min-w-0 self-stretch">
@@ -964,18 +961,19 @@ function TopListCard({ title, items, compareLabel, isRefreshing }: { title: stri
           ? <Sk w="w-[80px]" h="h-[32px]" />
           : <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] truncate w-full">{top.name}</span>
         }
-        {isRefreshing
+        {showComparison && isRefreshing
           ? <Sk w="w-[180px]" h="h-[16px]" />
-          : <p className="text-[0px] leading-[0] w-full">
+          : showComparison && <p className="text-[0px] leading-[0] w-full">
               <span className="font-['Inter:Semi_Bold'] font-semibold text-[#22201f] text-[14px] leading-[20px]">{top.count} units sold • </span>
               <span className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[20px] ${top.positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{top.change} </span>
-              <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {compareLabel}</span>
+              <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {lowercaseFirstLetter(compareLabel)}</span>
             </p>
         }
       </div>
+      <div className="h-px w-full shrink-0 bg-[#e3e2dd]" />
       <div className="flex flex-col gap-[12px] items-start w-full flex-1">
         {items.map((item) => (
-          <ProductRow key={item.rank} {...item} isRefreshing={isRefreshing} />
+          <ProductRow key={item.rank} {...item} showComparison={showComparison} isRefreshing={isRefreshing} />
         ))}
       </div>
       <span className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] cursor-pointer hover:underline">See more</span>
@@ -984,14 +982,108 @@ function TopListCard({ title, items, compareLabel, isRefreshing }: { title: stri
   );
 }
 
-function SiteTableRow({ rank, name, today, last, diff, positive, isRefreshing }: { rank: number; name: string; today: string; last: string; diff: string; positive: boolean; isRefreshing?: boolean }) {
+function SiteTableRow({ rank, name, today, last, diff, positive, showComparison, isRefreshing }: { rank: number; name: string; today: string; last: string; diff: string; positive: boolean; showComparison: boolean; isRefreshing?: boolean }) {
   return (
     <div className="border-b border-[#e3e2dd] flex gap-[16px] items-center pl-[4px] pr-[12px] py-[12px] w-full">
       <span className="font-['Inter:Regular'] text-[#62615d] text-[13px] leading-[24px] w-[20px] shrink-0 text-right">{rank}</span>
       <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] flex-1 min-w-0">{name}</span>
       {isRefreshing ? <Sk w="w-[72px]" h="h-[16px]" /> : <span className="font-['Inter:Regular'] text-black text-[14px] leading-[24px] text-right w-[120px] shrink-0">{today}</span>}
-      {isRefreshing ? <Sk w="w-[72px]" h="h-[16px]" /> : <span className="font-['Inter:Regular'] text-black text-[14px] leading-[24px] text-right w-[120px] shrink-0">{last}</span>}
-      {isRefreshing ? <Sk w="w-[48px]" h="h-[16px]" /> : <span className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[120px] shrink-0 ${positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{diff}</span>}
+      {showComparison && (isRefreshing ? <Sk w="w-[72px]" h="h-[16px]" /> : <span className="font-['Inter:Regular'] text-black text-[14px] leading-[24px] text-right w-[120px] shrink-0">{last}</span>)}
+      {showComparison && (isRefreshing ? <Sk w="w-[48px]" h="h-[16px]" /> : <span className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[120px] shrink-0 ${positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{diff}</span>)}
+    </div>
+  );
+}
+
+const EXPORT_OPTIONS = [
+  {
+    id: "spreadsheet",
+    label: "CSV/Excel (.xlsx)",
+    description: "Export report data for spreadsheets and further analysis.",
+    badge: "XLSX",
+  },
+  {
+    id: "pdf",
+    label: "PDF",
+    description: "Download a print-ready copy of this report.",
+    badge: "PDF",
+  },
+  {
+    id: "png",
+    label: "Image (PNG) of a chart",
+    description: "Save a chart as an image for presentations or sharing.",
+    badge: "PNG",
+  },
+] as const;
+
+function ExportModal({ onClose, onExport }: { onClose: () => void; onExport: (label: string) => void }) {
+  const [selected, setSelected] = useState<(typeof EXPORT_OPTIONS)[number]["id"] | null>(null);
+  const selectedOption = EXPORT_OPTIONS.find((option) => option.id === selected);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(70,74,81,0.6)] p-[16px]"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-modal-title"
+        className="bg-white rounded-[12px] shadow-[0px_8px_8px_0px_rgba(18,18,18,0.04),0px_4px_4px_0px_rgba(18,18,18,0.08),0px_1px_1px_0px_rgba(18,18,18,0.12)] p-[24px] flex flex-col gap-[20px] w-full max-w-[480px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start gap-[16px]">
+          <div className="flex-1">
+            <h2 id="export-modal-title" className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[28px]">Export report</h2>
+            <p className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px] mt-[4px]">Choose a format for your report.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close export options"
+            className="shrink-0 size-[24px] flex items-center justify-center hover:opacity-70 transition-opacity"
+          >
+            <img alt="" className="block size-[16px]" src={imgModalClose} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-[8px]" role="radiogroup" aria-label="Export format">
+          {EXPORT_OPTIONS.map((option) => {
+            const isSelected = selected === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => setSelected(option.id)}
+                className={`flex items-center gap-[12px] rounded-[8px] border p-[12px] text-left transition-colors ${isSelected ? "border-[#1e72c4] bg-[#f4f9ff]" : "border-[#e3e2dd] hover:bg-[#f9f8f4]"}`}
+              >
+                <span className={`size-[18px] rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-[#1e72c4]" : "border-[#bbbab6]"}`}>
+                  {isSelected && <span className="size-[10px] rounded-full bg-[#1e72c4]" />}
+                </span>
+                <span className="flex size-[36px] items-center justify-center rounded-[6px] bg-[#f2f0ea] font-['Inter:Semibold'] text-[#62615d] text-[10px] shrink-0">
+                  {option.badge}
+                </span>
+                <span className="flex flex-col gap-[2px] min-w-0">
+                  <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option.label}</span>
+                  <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">{option.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="w-full">
+          <button
+            type="button"
+            disabled={!selectedOption}
+            onClick={() => selectedOption && onExport(selectedOption.label)}
+            className="bg-[#1e72c4] text-white font-['Inter:Semibold'] text-[14px] leading-[20px] h-[40px] w-full rounded-[8px] hover:bg-[#1a64ae] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Export
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1002,7 +1094,6 @@ const imgMenuViews  = `${assetPathPrefix}/c4128.svg`;
 const imgMenuDivider = `${assetPathPrefix}/0f2e1.svg`;
 const imgMenuBin = `${assetPathPrefix}/b8944.svg`;
 const imgMenuExport = `${assetPathPrefix}/663bf.svg`;
-const imgMenuEmail = `${assetPathPrefix}/58f6c.svg`;
 const imgMenuArrow = `${assetPathPrefix}/ee956.svg`;
 const imgMenuDivider2 = `${assetPathPrefix}/86600.svg`;
 const imgModalClose = `${assetPathPrefix}/a578b.svg`;
@@ -1017,12 +1108,66 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div className="fixed bottom-[24px] left-1/2 -translate-x-1/2 z-[200] flex items-center gap-[10px] bg-[#22201f] text-white rounded-[10px] px-[16px] py-[12px] shadow-[0px_4px_16px_0px_rgba(18,18,18,0.2)] font-['Inter:Regular'] text-[14px] leading-[20px] whitespace-nowrap pointer-events-none">
+    <div className="fixed bottom-[24px] left-1/2 -translate-x-1/2 z-[200] flex items-center gap-[10px] bg-[#22201f] text-white rounded-[10px] px-[16px] py-[12px] shadow-[0px_4px_16px_0px_rgba(18,18,18,0.2)] font-['Inter:Regular'] text-[14px] leading-[20px] text-center max-w-[calc(100vw-32px)] pointer-events-none">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
         <circle cx="8" cy="8" r="7" stroke="#4ade80" strokeWidth="1.5"/>
         <path d="M5 8l2 2 4-4" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
       {message}
+    </div>
+  );
+}
+
+function SavedFiltersGuidance({ targetRef, onDismiss }: { targetRef: React.RefObject<HTMLDivElement | null>; onDismiss: () => void }) {
+  const [position, setPosition] = useState<{ top: number; left: number; arrowRight: number } | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function updatePosition() {
+      const target = targetRef.current;
+      const tooltip = tooltipRef.current;
+      if (!target || !tooltip) return;
+
+      const width = tooltip.getBoundingClientRect().width;
+      const bounds = target.getBoundingClientRect();
+      const left = Math.max(16, Math.min(bounds.right - width, window.innerWidth - width - 16));
+      const arrowCenter = bounds.left + bounds.width / 2 - left;
+      setPosition({ top: bounds.bottom + 10, left, arrowRight: Math.max(12, Math.min(width - 12, width - arrowCenter - 5)) });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [targetRef]);
+
+  return (
+    <div
+      ref={tooltipRef}
+      role="status"
+      className="fixed z-[90] w-fit max-w-[calc(100vw-32px)] rounded-[8px] border border-[#e3e2dd] bg-white px-[14px] py-[12px] shadow-[0px_4px_16px_0px_rgba(18,18,18,0.14)]"
+      style={{ top: position?.top ?? -1000, left: position?.left ?? 16, visibility: position ? "visible" : "hidden" }}
+    >
+      <span
+        aria-hidden="true"
+        className="absolute top-[-6px] size-[10px] rotate-45 border-l border-t border-[#e3e2dd] bg-white"
+        style={{ right: position?.arrowRight ?? 12 }}
+      />
+      <div className="relative flex items-center gap-[16px]">
+        <p className="font-['Inter:Regular'] text-[#22201f] text-[13px] leading-[18px]">
+          Saved filters live here
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 rounded-[6px] px-[8px] py-[4px] font-['Inter:Semibold'] text-[#1e72c4] text-[12px] leading-[16px] hover:bg-[#f2f0ea]"
+        >
+          Got it
+        </button>
+      </div>
     </div>
   );
 }
@@ -1090,16 +1235,20 @@ function SaveViewModal({
               <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("existing")}>Save to existing filter</span>
             </label>
             {mode === "existing" && (
-              <select
-                className="bg-white border border-[#bbbab6] rounded-[8px] h-[40px] px-[12px] font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] w-full outline-none focus:border-[#1e72c4] ml-[26px]"
-                style={{ width: "calc(100% - 26px)" }}
-                value={selectedExisting}
-                onChange={(e) => setSelectedExisting(e.target.value)}
-              >
-                {existingFilters.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
+              <div className="relative ml-[26px] w-[calc(100%-26px)]">
+                <select
+                  className="block appearance-none bg-white border border-[#bbbab6] rounded-[8px] h-[40px] pl-[12px] pr-[36px] font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] w-full outline-none focus:border-[#1e72c4]"
+                  value={selectedExisting}
+                  onChange={(e) => setSelectedExisting(e.target.value)}
+                >
+                  {existingFilters.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+                <svg aria-hidden="true" className="pointer-events-none absolute right-[12px] top-1/2 -translate-y-1/2" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="m4 6 4 4 4-4" stroke="#22201f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
             )}
             <label className="flex items-center gap-[10px] cursor-pointer">
               <div
@@ -1155,11 +1304,13 @@ function SaveViewModal({
 function MoreMenu({
   savedFilters,
   onClose,
+  onExport,
   onApplyFilter,
   onDeleteFilter,
 }: {
   savedFilters: Array<{ name: string }>;
   onClose: () => void;
+  onExport: () => void;
   onApplyFilter: (name: string) => void;
   onDeleteFilter: (name: string) => void;
 }) {
@@ -1179,7 +1330,7 @@ function MoreMenu({
         onMouseLeave={() => setViewsHovered(false)}
       >
         <img alt="" className="shrink-0 size-[16px]" src={imgMenuViews} />
-        <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] flex-1">Saved filters</span>
+        <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1">Saved filters</span>
         <img alt="" className="shrink-0 size-[16px]" src={imgMenuArrow} />
 
         {viewsHovered && (
@@ -1217,20 +1368,11 @@ function MoreMenu({
 
       {/* Export */}
       <button
-        onClick={onClose}
+        onClick={onExport}
         className="flex gap-[8px] h-[36px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
       >
         <img alt="" className="shrink-0 size-[16px]" src={imgMenuExport} />
-        <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] flex-1 text-left">Export</span>
-      </button>
-
-      {/* Schedule send */}
-      <button
-        onClick={onClose}
-        className="flex gap-[8px] h-[36px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
-      >
-        <img alt="" className="shrink-0 size-[16px]" src={imgMenuEmail} />
-        <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] flex-1 text-left">Schedule send</span>
+        <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 text-left">Export</span>
       </button>
     </div>
   );
@@ -1262,7 +1404,8 @@ export default function App() {
   const [showSiteDropdown, setShowSiteDropdown] = useState(false);
   const [dateSelected, setDateSelected] = useState<{ id: string; label: string }>({ id: "today", label: "Today" });
   const [showDateDropdown, setShowDateDropdown] = useState(false);
-  const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>({ id: "last-same-day", label: `last ${TODAY_NAME}` });
+  const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>({ id: "last-same-day", label: "Last Thursday" });
+  const showComparison = compareSelected.id !== "none";
   const [showCompareDropdown, setShowCompareDropdown] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<AppliedFilter[]>([]);
@@ -1270,6 +1413,8 @@ export default function App() {
   const [hasUnapplied, setHasUnapplied] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showSavedFiltersGuidance, setShowSavedFiltersGuidance] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -1333,6 +1478,7 @@ export default function App() {
   }
 
   function saveCurrentFilters(name: string) {
+    const isFirstSavedFilter = savedFilters.length === 0;
     setSavedFilters((prev) => [
       ...prev,
       {
@@ -1345,6 +1491,7 @@ export default function App() {
       },
     ]);
     setToast(`"${name}" saved`);
+    if (isFirstSavedFilter) setShowSavedFiltersGuidance(true);
   }
 
   function deleteFilter(name: string) {
@@ -1450,7 +1597,7 @@ export default function App() {
     setDrawerState(DEFAULT_CHECKBOXES);
     setSiteSelected({ id: "all", name: "All sites" });
     setDateSelected({ id: "today", label: "Today" });
-    setCompareSelected({ id: "last-same-day", label: `last ${TODAY_NAME}` });
+    setCompareSelected({ id: "last-same-day", label: "Last Thursday" });
   }
 
   return (
@@ -1581,7 +1728,10 @@ export default function App() {
                     )}
                   </>
                 )}
-                <div ref={moreRef} className="relative">
+                <div
+                  ref={moreRef}
+                  className={`relative rounded-full ${showSavedFiltersGuidance ? "z-[91] ring-[5px] ring-[#1e72c4]/20 shadow-[0_0_0_3px_rgba(30,114,196,0.12)]" : ""}`}
+                >
                   <button
                     onClick={() => setShowMoreMenu((v) => !v)}
                     className="flex items-center justify-center rounded-full size-[32px] hover:bg-[#edeae4] transition-colors"
@@ -1592,6 +1742,7 @@ export default function App() {
                     <MoreMenu
                       savedFilters={savedFilters}
                       onClose={() => setShowMoreMenu(false)}
+                      onExport={() => { setShowMoreMenu(false); setShowExportModal(true); }}
                       onApplyFilter={(name) => {
                         const f = savedFilters.find((s) => s.name === name);
                         if (f) applyFilter(f);
@@ -1605,9 +1756,9 @@ export default function App() {
 
             {/* KPI row */}
             <div className="flex gap-[16px] items-start w-full">
-              <KpiCard label="Total sales" value="$4,182.60" change="+9.7%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} isRefreshing={isRefreshing} />
-              <KpiCard label="Orders" value="241" change="−4.6%" changeColor="text-[#8e1311]" compareLabel={compareSelected.label} isRefreshing={isRefreshing} />
-              <KpiCard label="Average order" value="$17.35" change="+13.2%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} isRefreshing={isRefreshing} />
+              <KpiCard label="Total sales" value="$4,182.60" change="+9.7%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
+              <KpiCard label="Orders" value="241" change="−4.6%" changeColor="text-[#8e1311]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
+              <KpiCard label="Average order" value="$17.35" change="+13.2%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
               <WidgetCard className="flex-1 min-w-0 h-full">
               <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
                 <div className="flex gap-[8px] items-center w-full">
@@ -1628,27 +1779,27 @@ export default function App() {
                 <AskButton label="Ask about this" />
                 <InfoIcon tooltip="Total sales revenue broken down by hour" />
               </div>
-              <HourlySalesChart compareLabel={compareSelected.label} isRefreshing={isRefreshing} />
+              <HourlySalesChart compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
             </div>
             </WidgetCard>
 
             {/* Top lists row */}
-            <div className="flex gap-[16px] items-start w-full">
-              <TopListCard title="Top selling products" compareLabel={compareSelected.label} isRefreshing={isRefreshing} items={[
+            <div className="flex gap-[16px] items-stretch w-full">
+              <TopListCard title="Top selling products" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} items={[
                 { rank: 1, name: "Latte", count: 82, change: "+7.4%", positive: true },
                 { rank: 2, name: "Flat White", count: 67, change: "−2.9%", positive: false },
                 { rank: 3, name: "Plain Croissant", count: 32, change: "+15.6%", positive: true },
                 { rank: 4, name: "Cappuccino", count: 31, change: "+4.8%", positive: true },
                 { rank: 5, name: "Banana Bread", count: 16, change: "−8.3%", positive: false },
               ]} />
-              <TopListCard title="Top selling categories" compareLabel={compareSelected.label} isRefreshing={isRefreshing} items={[
+              <TopListCard title="Top selling categories" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} items={[
                 { rank: 1, name: "Coffee", count: 187, change: "+12.1%", positive: true },
                 { rank: 2, name: "Pastries", count: 76, change: "+6.5%", positive: true },
                 { rank: 3, name: "Sweets", count: 65, change: "−5.7%", positive: false },
                 { rank: 4, name: "Toasties", count: 47, change: "+10.9%", positive: true },
                 { rank: 5, name: "Other drinks", count: 30, change: "+3.6%", positive: true },
               ]} />
-              <TopListCard title="Top selling reporting groups" compareLabel={compareSelected.label} isRefreshing={isRefreshing} items={[
+              <TopListCard title="Top selling reporting groups" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} items={[
                 { rank: 1, name: "Drinks", count: 384, change: "−11.4%", positive: false },
                 { rank: 2, name: "Food", count: 265, change: "+14.7%", positive: true },
                 { rank: 3, name: "Other", count: 157, change: "−6.2%", positive: false },
@@ -1669,16 +1820,16 @@ export default function App() {
                   <span className="w-[20px] shrink-0" />
                   <span className="flex-1 min-w-0">Site</span>
                   <span className="text-right w-[120px] shrink-0">Sales {dateSelected.label.toLowerCase()}</span>
-                  <span className="text-right w-[120px] shrink-0">{compareSelected.label.charAt(0).toUpperCase() + compareSelected.label.slice(1)}</span>
-                  <span className="text-right w-[120px] shrink-0">Difference</span>
+                  {showComparison && <>
+                    <span className="text-right w-[120px] shrink-0">{compareSelected.label.charAt(0).toUpperCase() + compareSelected.label.slice(1)}</span>
+                    <span className="text-right w-[120px] shrink-0">Difference</span>
+                  </>}
                 </div>
-                <SiteTableRow rank={1} name="Amberley – The Coffee Company" today="$4,356.39" last="$3,960.11" diff="+8.8%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={2} name="Brambleton – The Coffee Company" today="$2,764.40" last="$2,940.24" diff="−3.4%" positive={false} isRefreshing={isRefreshing} />
-                <SiteTableRow rank={3} name="Copperfield – The Coffee Company" today="$2,661.29" last="$2,464.88" diff="+11.6%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={4} name="Foxglove – The Coffee Company" today="$2,045.94" last="$2,130.15" diff="−9.1%" positive={false} isRefreshing={isRefreshing} />
-                <SiteTableRow rank={5} name="Mossgate – The Coffee Company" today="$1,613.69" last="$1,440.01" diff="+5.3%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={6} name="Pinehollow – The Coffee Company" today="$1,032.56" last="$1,110.82" diff="+2.2%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={7} name="Riverbend – The Coffee Company" today="$914.10" last="$870.67" diff="−13.7%" positive={false} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={1} name="Amberley – The Coffee Company" today="$4,356.39" last="$3,960.11" diff="+8.8%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={2} name="Brambleton – The Coffee Company" today="$2,764.40" last="$2,940.24" diff="−3.4%" positive={false} showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={3} name="Copperfield – The Coffee Company" today="$2,661.29" last="$2,464.88" diff="+11.6%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={4} name="Foxglove – The Coffee Company" today="$2,045.94" last="$2,130.15" diff="−9.1%" positive={false} showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={5} name="Mossgate – The Coffee Company" today="$1,613.69" last="$1,440.01" diff="+5.3%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
               </div>
               <span className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] cursor-pointer hover:underline">See more</span>
             </div>
@@ -1697,17 +1848,16 @@ export default function App() {
                   <span className="w-[20px] shrink-0" />
                   <span className="flex-1 min-w-0">Staff member</span>
                   <span className="text-right w-[120px] shrink-0">Sales {dateSelected.label.toLowerCase()}</span>
-                  <span className="text-right w-[120px] shrink-0">{compareSelected.label.charAt(0).toUpperCase() + compareSelected.label.slice(1)}</span>
-                  <span className="text-right w-[120px] shrink-0">Difference</span>
+                  {showComparison && <>
+                    <span className="text-right w-[120px] shrink-0">{compareSelected.label.charAt(0).toUpperCase() + compareSelected.label.slice(1)}</span>
+                    <span className="text-right w-[120px] shrink-0">Difference</span>
+                  </>}
                 </div>
-                <SiteTableRow rank={1} name="Olivia Hartwell" today="$3,241.80" last="$2,988.50" diff="+8.5%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={2} name="Marcus Delgado" today="$2,876.40" last="$2,910.20" diff="−1.2%" positive={false} isRefreshing={isRefreshing} />
-                <SiteTableRow rank={3} name="Priya Nair" today="$2,534.60" last="$2,310.75" diff="+9.7%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={4} name="Tom Ashworth" today="$2,190.30" last="$2,050.00" diff="+6.8%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={5} name="Sophie Brennan" today="$1,847.90" last="$1,920.40" diff="−3.8%" positive={false} isRefreshing={isRefreshing} />
-                <SiteTableRow rank={6} name="James Okafor" today="$1,612.50" last="$1,480.30" diff="+8.9%" positive isRefreshing={isRefreshing} />
-                <SiteTableRow rank={7} name="Yuki Tanaka" today="$1,205.70" last="$1,340.60" diff="−10.1%" positive={false} isRefreshing={isRefreshing} />
-                <SiteTableRow rank={8} name="Chloe Fairbanks" today="$986.40" last="$870.90" diff="+13.3%" positive isRefreshing={isRefreshing} />
+                <SiteTableRow rank={1} name="Olivia Hartwell" today="$3,241.80" last="$2,988.50" diff="+8.5%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={2} name="Marcus Delgado" today="$2,876.40" last="$2,910.20" diff="−1.2%" positive={false} showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={3} name="Priya Nair" today="$2,534.60" last="$2,310.75" diff="+9.7%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={4} name="Tom Ashworth" today="$2,190.30" last="$2,050.00" diff="+6.8%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
+                <SiteTableRow rank={5} name="Sophie Brennan" today="$1,847.90" last="$1,920.40" diff="−3.8%" positive={false} showComparison={showComparison} isRefreshing={isRefreshing} />
               </div>
               <span className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] cursor-pointer hover:underline">See more</span>
             </div>
@@ -1727,7 +1877,24 @@ export default function App() {
         />
       )}
 
+      {showExportModal && (
+        <ExportModal
+          onClose={() => setShowExportModal(false)}
+          onExport={(format) => {
+            setShowExportModal(false);
+            setToast(`${format} selected`);
+          }}
+        />
+      )}
+
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+
+      {showSavedFiltersGuidance && (
+        <SavedFiltersGuidance
+          targetRef={moreRef}
+          onDismiss={() => setShowSavedFiltersGuidance(false)}
+        />
+      )}
 
       {/* Filter Drawer */}
       <FilterDrawer
