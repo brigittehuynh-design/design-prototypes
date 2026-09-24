@@ -29,14 +29,24 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: reports-bo/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: reports-bo
       - name: Build
         run: pnpm build
+        working-directory: reports-bo
+      - name: Prepare Pages artifact
+        run: mkdir -p _site/reports-bo && cp -R reports-bo/dist/. _site/reports-bo/
+      - name: Preserve other prototypes
+        run: |
+          if [ -d site ]; then
+            cp -R site/. _site/
+          fi
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
 
   deploy:
     environment:

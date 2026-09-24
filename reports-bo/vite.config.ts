@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: process.env.GITHUB_ACTIONS
-      ? '/design-prototypes/'
+      ? '/design-prototypes/reports-bo/'
       : process.env.FIGMA_PUBLIC_URL
         ? `${process.env.FIGMA_PUBLIC_URL}/`
         : '/',
