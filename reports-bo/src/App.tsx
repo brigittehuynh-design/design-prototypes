@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 
-const assetPathPrefix = "/assets";
+const assetPathPrefix = `${import.meta.env.BASE_URL}assets`;
 
 // Icons
 const imgArrowRight = `${assetPathPrefix}/ee956.svg`;
@@ -13,7 +13,7 @@ const imgWallet = `${assetPathPrefix}/e29e2.svg`;
 const imgCog = `${assetPathPrefix}/87ae5.svg`;
 const imgHelp = `${assetPathPrefix}/c8458.svg`;
 const imgProfile = `${assetPathPrefix}/6c93b.svg`;
-const imgRefresh = `/assets/86177.svg`;
+const imgRefresh = `${assetPathPrefix}/86177.svg`;
 const imgChat = `${assetPathPrefix}/c3b6d.svg`;
 const imgAnnouncement = `${assetPathPrefix}/4d025.svg`;
 const imgFilter = `${assetPathPrefix}/946c4.svg`;
@@ -998,14 +998,14 @@ function SiteTableRow({ rank, name, today, last, diff, positive, isRefreshing }:
 
 // ─── More Menu ───────────────────────────────────────────────────────────────
 
-const imgMenuViews  = `/assets/c4128.svg`;
-const imgMenuDivider = `/assets/0f2e1.svg`;
-const imgMenuBin = `/assets/b8944.svg`;
-const imgMenuExport = `/assets/663bf.svg`;
-const imgMenuEmail = `/assets/58f6c.svg`;
-const imgMenuArrow = `/assets/ee956.svg`;
-const imgMenuDivider2 = `/assets/86600.svg`;
-const imgModalClose = `/assets/a578b.svg`;
+const imgMenuViews  = `${assetPathPrefix}/c4128.svg`;
+const imgMenuDivider = `${assetPathPrefix}/0f2e1.svg`;
+const imgMenuBin = `${assetPathPrefix}/b8944.svg`;
+const imgMenuExport = `${assetPathPrefix}/663bf.svg`;
+const imgMenuEmail = `${assetPathPrefix}/58f6c.svg`;
+const imgMenuArrow = `${assetPathPrefix}/ee956.svg`;
+const imgMenuDivider2 = `${assetPathPrefix}/86600.svg`;
+const imgModalClose = `${assetPathPrefix}/a578b.svg`;
 
 // ─── Save View Modal ──────────────────────────────────────────────────────────
 
@@ -1241,7 +1241,7 @@ function MoreMenu({
 function AskButton({ label = "Ask" }: { label?: string }) {
   return (
     <button className="flex items-center gap-[4px] opacity-0 group-hover:opacity-100 transition-opacity text-[#1e72c4] hover:text-[#1458a0]">
-      <img alt="" className="block shrink-0" style={{ width: 13.33, height: 13.33 }} src="/assets/d5311.svg" />
+      <img alt="" className="block shrink-0" style={{ width: 13.33, height: 13.33 }} src={`${assetPathPrefix}/d5311.svg`} />
       <span className="font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] text-current">{label}</span>
     </button>
   );
