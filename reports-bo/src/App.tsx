@@ -1218,7 +1218,7 @@ function SaveViewModal({
             </button>
           </div>
           <p className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px]">
-            Keep your filters and comparisons so you can jump back in with one click.
+            Keep your filters and comparisons so you can easily jump back in.
           </p>
         </div>
 
