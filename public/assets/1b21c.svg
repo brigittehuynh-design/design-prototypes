@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="1135" height="97" viewBox="0 0 1135 97" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path id="previous-period-shape" d="M69.5 56L0 61V97H1135V39L1071.5 31L923 37L781.5 23L636 0L498.5 30L355.5 50L211 44L69.5 56Z" fill="url(#paint0_linear_0_1514)"/>
+<defs>
+<linearGradient id="paint0_linear_0_1514" x1="567.5" y1="-8" x2="567.5" y2="97" gradientUnits="userSpaceOnUse">
+<stop stop-color="#D4ECFF"/>
+<stop offset="1" stop-color="white" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

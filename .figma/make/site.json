@@ -1,0 +1,10 @@
+{
+  "description": "This interactive web application streamlines data analysis by allowing users to easily apply and manage filters, enhancing report customization and insights.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
