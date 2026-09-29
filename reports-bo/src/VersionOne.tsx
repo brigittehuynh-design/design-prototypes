@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from "react";
-import VersionOnePrototype from "./VersionOne";
 
 const assetPathPrefix = `${import.meta.env.BASE_URL}assets`;
 
@@ -17,6 +16,8 @@ const imgProfile = `${assetPathPrefix}/6c93b.svg`;
 const imgRefresh = `${assetPathPrefix}/86177.svg`;
 const imgChat = `${assetPathPrefix}/c3b6d.svg`;
 const imgAnnouncement = `${assetPathPrefix}/4d025.svg`;
+const imgFilter = `${assetPathPrefix}/946c4.svg`;
+const imgMore = `${assetPathPrefix}/7f410.svg`;
 const imgInfo = `${assetPathPrefix}/753ad.svg`;
 const imgLine = `${assetPathPrefix}/96b81.svg`;
 const imgPrevShape = `${assetPathPrefix}/1b21c.svg`;
@@ -24,12 +25,19 @@ const imgPrevLine = `${assetPathPrefix}/a452e.svg`;
 const imgSparkShape = `${assetPathPrefix}/66d26.svg`;
 const imgSparkLine = `${assetPathPrefix}/1fda1.svg`;
 const imgRowLine = `${assetPathPrefix}/7183d.svg`;
+const imgClose = `${assetPathPrefix}/e618d.svg`;
 const imgSearch = `${assetPathPrefix}/a4aea.svg`;
 const imgCheck = `${assetPathPrefix}/7279d.svg`;
 const imgChecked = `${assetPathPrefix}/3d476.svg`;
 const imgDivider = `${assetPathPrefix}/973a3.svg`;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+
+type AppliedFilter = {
+  id: string;
+  label: string;
+  value: string;
+};
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
@@ -158,24 +166,57 @@ function DefaultFilterChip({
   label,
   value,
   onClick,
-  disabled = false,
-  valueClassName = "",
 }: {
   label: string;
   value: string;
   onClick?: () => void;
-  disabled?: boolean;
-  valueClassName?: string;
 }) {
   return (
     <button
-      type="button"
       onClick={onClick}
-      disabled={disabled}
-      className={`flex h-[32px] max-w-full items-center gap-[6px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] text-left shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-[#f9f8f4]"}`}
+      className="group flex h-[32px] items-start rounded-[4px] overflow-hidden cursor-pointer"
     >
-      <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">{label}</span>
-      <span className={`min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px] ${valueClassName}`}>{value}</span>
+      <div className="bg-[#edeae4] group-hover:bg-[#e0ddd7] h-full flex flex-col items-start justify-center px-[8px] py-[6px] transition-colors">
+        <span className="font-['Inter:Regular'] text-black text-[12px] leading-[16px] whitespace-nowrap">{label}</span>
+      </div>
+      <div className="bg-[#edf6ff] group-hover:bg-[#dbeeff] h-full flex gap-[6px] items-center px-[8px] py-[6px] transition-colors">
+        <span className="font-['Inter:Medium'] text-black text-[12px] leading-[16px] whitespace-nowrap">{value}</span>
+      </div>
+    </button>
+  );
+}
+
+function RemovableFilterChip({
+  label,
+  value,
+  onRemove,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  onRemove: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex h-[32px] items-start rounded-[4px] overflow-hidden cursor-pointer"
+    >
+      <div className="bg-[#edeae4] group-hover:bg-[#e0ddd7] h-full flex flex-col items-start justify-center px-[8px] py-[6px] transition-colors">
+        <span className="font-['Inter:Regular'] text-black text-[12px] leading-[16px] whitespace-nowrap">{label}</span>
+      </div>
+      <div className="bg-[#edf6ff] group-hover:bg-[#dbeeff] h-full flex gap-[6px] items-center px-[8px] py-[6px] transition-colors">
+        <span className="font-['Inter:Medium'] text-black text-[12px] leading-[16px] whitespace-nowrap">{value}</span>
+        <span
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="flex items-center justify-center size-[14px] rounded-full hover:bg-[#c5c1ba] transition-colors text-[#22201f]"
+          aria-label="Remove filter"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </span>
+      </div>
     </button>
   );
 }
@@ -195,12 +236,12 @@ const SITE_OPTIONS: SiteOption[] = [
 ];
 
 function SiteDropdown({
-  selectedIds,
-  onToggle,
+  selected,
+  onSelect,
   onClose,
 }: {
-  selectedIds: string[];
-  onToggle: (id: string) => void;
+  selected: string;
+  onSelect: (id: string, name: string) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -216,109 +257,37 @@ function SiteDropdown({
   return (
     <div
       ref={ref}
-      className="absolute top-[40px] left-0 z-50 bg-white border border-[#e3e2dd] rounded-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] w-[min(360px,calc(100vw-32px))] overflow-hidden"
+      className="absolute top-[40px] left-0 z-50 bg-white border border-[#e3e2dd] rounded-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] w-[360px] overflow-hidden"
     >
+      {/* All sites row */}
       <div className="p-[4px]">
-        <CheckboxMenuRow
-          label="All sites"
-          checked={selectedIds.length === 0}
-          onClick={() => onToggle("all")}
-        />
-      </div>
-      <div className="h-px w-full bg-[#e3e2dd]" />
-      <div className="max-h-[320px] overflow-y-auto p-[4px]">
-        {SITE_OPTIONS.slice(1).map((site) => (
-          <CheckboxMenuRow
-            key={site.id}
-            label={site.name}
-            checked={selectedIds.includes(site.id)}
-            onClick={() => onToggle(site.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CheckboxMenuRow({ label, checked, onClick }: { label: string; checked: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      onClick={onClick}
-      className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
-    >
-      <span className={`flex size-[16px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] ${checked ? "" : "border border-[#bbbab6] bg-white"}`}>
-        {checked && <img alt="" className="size-full" src={imgChecked} />}
-      </span>
-      <span className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{label}</span>
-    </button>
-  );
-}
-
-const REGISTERS_BY_SITE: Record<string, string[]> = {
-  amberley: ["POS A", "Front POS", "Back POS"],
-  brambleton: ["POS A", "Front POS", "Back POS"],
-  oakridge: ["POS A", "Front POS", "Back POS"],
-  pinehollow: ["POS A", "Front POS", "Back POS"],
-  riverbend: ["POS A", "Front POS", "Back POS"],
-  willowmere: ["POS A", "Front POS", "Back POS"],
-};
-
-function RegisterDropdown({
-  selectedSites,
-  selectedRegisters,
-  onToggle,
-  onClose,
-}: {
-  selectedSites: SiteOption[];
-  selectedRegisters: string[];
-  onToggle: (key: string) => void;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useDropdownClose(ref, onClose);
-  const options = selectedSites.flatMap((site) =>
-    (REGISTERS_BY_SITE[site.id] ?? []).map((name) => ({ key: `${site.id}:${name}`, site: site.name, name }))
-  );
-
-  return (
-    <div ref={ref} className="absolute top-[40px] left-0 z-50 w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
-      <div className="max-h-[360px] overflow-y-auto p-[4px]">
-        {options.length === 0 ? (
-          <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">No registers available for this site.</p>
-        ) : selectedSites.length > 1 ? (
-          selectedSites.map((site) => {
-            const siteOptions = options.filter((option) => option.site === site.name);
-            return (
-              <div key={site.id} className="mb-[4px] last:mb-0">
-                <p className="px-[12px] py-[8px] font-['Inter:Medium'] text-[#62615d] text-[14px] leading-[20px]">{site.name}</p>
-                {siteOptions.map((option) => (
-                  <CheckboxMenuRow key={option.key} label={option.name} checked={selectedRegisters.includes(option.key)} onClick={() => onToggle(option.key)} />
-                ))}
-              </div>
-            );
-          })
-        ) : options.map((option) => (
-          <CheckboxMenuRow key={option.key} label={option.name} checked={selectedRegisters.includes(option.key)} onClick={() => onToggle(option.key)} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TaxDropdown({ selected, onSelect, onClose }: { selected: string; onSelect: (value: string) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useDropdownClose(ref, onClose);
-  return (
-    <div ref={ref} className="absolute top-[40px] left-0 z-50 w-[190px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
-      {["Inclusive", "Exclusive"].map((option) => (
-        <button key={option} type="button" onClick={() => { onSelect(option); onClose(); }} className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]">
-          <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option}</span>
-          {selected === option && <img alt="Selected" className="size-[16px] shrink-0" src={imgCheck} />}
+        <button
+          onClick={() => { onSelect("all", "All sites"); onClose(); }}
+          className="flex gap-[12px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
+        >
+          <div className="bg-[#edeae4] rounded-[8px] shrink-0 size-[32px]" />
+          <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 min-w-0 truncate text-left">All sites</span>
+          {selected === "all" && <img alt="" className="block shrink-0 size-[16px]" src={imgCheck} />}
         </button>
-      ))}
+      </div>
+      {/* Divider */}
+      <div className="relative h-px w-full my-0">
+        <img alt="" className="block w-full" src={imgDivider} />
+      </div>
+      {/* Individual sites */}
+      <div className="p-[4px]">
+        {SITE_OPTIONS.slice(1).map((site) => (
+          <button
+            key={site.id}
+            onClick={() => { onSelect(site.id, site.name); onClose(); }}
+            className="flex gap-[12px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
+          >
+            <div className="bg-[#edeae4] rounded-[8px] shrink-0 size-[32px]" />
+            <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 min-w-0 truncate text-left">{site.name}</span>
+            {selected === site.id && <img alt="" className="block shrink-0 size-[16px]" src={imgCheck} />}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -545,7 +514,7 @@ function getDateRangeLabel(id: string, _dateId?: string): string {
 // ─── Compare To Dropdown ──────────────────────────────────────────────────────
 
 const COMPARE_TO_OPTIONS: Record<string, Array<{ id: string; label: string }>> = {
-  "today":          [{ id: "last-same-day", label: "Last Tuesday" }, { id: "yesterday", label: "Yesterday" }, { id: "last-week-same-day", label: "Last week (same day)" }, { id: "last-year-same-day", label: "Last year (same day)" }],
+  "today":          [{ id: "last-same-day", label: "Last Thursday" }, { id: "yesterday", label: "Yesterday" }, { id: "last-week-same-day", label: "Last week (same day)" }, { id: "last-year-same-day", label: "Last year (same day)" }],
   "yesterday":      [{ id: "day-before", label: "Day before yesterday" }, { id: "last-week-same-day", label: `Last ${YESTERDAY_NAME}` }, { id: "last-year-same-day", label: "Last year (same day)" }],
   "past-week":      [{ id: "prev-week", label: "Previous week" }, { id: "same-week-last-year", label: "Same week last year" }],
   "month-to-date":  [{ id: "prev-month", label: "Previous month to date" }, { id: "same-period-last-year", label: "Same period last year" }],
@@ -596,6 +565,150 @@ function CompareToDropdown({
         })}
       </div>
     </div>
+  );
+}
+
+// ─── Filter Drawer ───────────────────────────────────────────────────────────
+
+type CheckboxState = {
+  registerA: boolean; registerB: boolean; registerC: boolean;
+  registerD: boolean; registerE: boolean; registerF: boolean;
+  food: boolean; drinks: boolean; other: boolean;
+  alcohol: boolean; coffee: boolean; pastries: boolean;
+  otherDrinks: boolean; toasties: boolean; sweets: boolean;
+};
+
+const DEFAULT_CHECKBOXES: CheckboxState = {
+  registerA: false, registerB: false, registerC: false,
+  registerD: false, registerE: false, registerF: false,
+  food: false, drinks: false, other: false,
+  alcohol: false, coffee: false, pastries: false,
+  otherDrinks: false, toasties: false, sweets: false,
+};
+
+function FilterDrawer({
+  open,
+  onClose,
+  initialState,
+  onApply,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialState: CheckboxState;
+  onApply: (state: CheckboxState) => void;
+}) {
+  const [checks, setChecks] = useState<CheckboxState>(initialState);
+
+  useEffect(() => {
+    setChecks(initialState);
+  }, [initialState, open]);
+
+  function toggle(key: keyof CheckboxState) {
+    setChecks((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function CheckboxRow({ label, field }: { label: string; field: keyof CheckboxState }) {
+    return (
+      <button
+        onClick={() => toggle(field)}
+        className="flex gap-[12px] items-start w-full text-left"
+      >
+        <div className={`relative shrink-0 size-[20px] mt-[1px] rounded-[4px] ${checks[field] ? "" : "bg-white border border-[#bbbab6] overflow-clip"}`}>
+          {checks[field] && <img alt="" className="absolute block inset-0 max-w-none size-full" src={imgChecked} />}
+        </div>
+        <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]">{label}</span>
+      </button>
+    );
+  }
+
+  const registersSelected = [
+    checks.registerA, checks.registerB, checks.registerC,
+    checks.registerD, checks.registerE, checks.registerF,
+  ].filter(Boolean).length;
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Drawer */}
+      <div
+        className={`fixed top-0 right-0 h-full z-50 bg-white shadow-[-4px_0px_24px_0px_rgba(0,0,0,0.08)] flex flex-col transition-transform duration-300 ease-in-out w-[400px]`}
+        style={{ transform: open ? "translateX(0)" : "translateX(100%)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-[24px] py-[16px] border-b border-[#e3e2dd] shrink-0">
+          <span className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[28px]">Filters</span>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center size-[32px] rounded-full hover:bg-[#f2f0ea] transition-colors"
+          >
+            <img alt="" className="block size-[16px]" src={imgClose} />
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-[16px] py-[16px] flex flex-col gap-[24px] min-h-0">
+          {/* Registers */}
+          <div className="flex flex-col gap-[12px]">
+            <span className="font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">Registers</span>
+            <div className="flex flex-col gap-[10px]">
+              <CheckboxRow label="Register A" field="registerA" />
+              <CheckboxRow label="Register B" field="registerB" />
+              <CheckboxRow label="Register C" field="registerC" />
+              <CheckboxRow label="Register D" field="registerD" />
+              <CheckboxRow label="Register E" field="registerE" />
+              <CheckboxRow label="Register F" field="registerF" />
+            </div>
+            <button className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[20px] text-left">Show all</button>
+          </div>
+
+          {/* Reporting groups */}
+          <div className="flex flex-col gap-[12px]">
+            <span className="font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">Reporting groups</span>
+            <div className="flex flex-col gap-[10px]">
+              <CheckboxRow label="Food" field="food" />
+              <CheckboxRow label="Drinks" field="drinks" />
+              <CheckboxRow label="Other" field="other" />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div className="flex flex-col gap-[12px]">
+            <span className="font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">Category</span>
+            <div className="flex flex-col gap-[10px]">
+              <CheckboxRow label="Alcohol" field="alcohol" />
+              <CheckboxRow label="Coffee" field="coffee" />
+              <CheckboxRow label="Pastries" field="pastries" />
+              <CheckboxRow label="Other drinks" field="otherDrinks" />
+              <CheckboxRow label="Toasties" field="toasties" />
+              <CheckboxRow label="Sweets" field="sweets" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-[8px] items-center px-[16px] py-[16px] border-t border-[#e3e2dd] shrink-0">
+          <button
+            onClick={() => { onApply(checks); onClose(); }}
+            className="flex-1 bg-[#1e72c4] text-white font-['Inter:Semibold'] text-[14px] leading-[20px] h-[40px] rounded-[8px] hover:bg-[#1a64ae] transition-colors"
+          >
+            {registersSelected > 0 ? `Apply filters` : "Apply filters"}
+          </button>
+          <button
+            onClick={() => setChecks(DEFAULT_CHECKBOXES)}
+            className="flex-1 bg-white border border-[#e3e2dd] text-[#22201f] font-['Inter:Semibold'] text-[14px] leading-[20px] h-[40px] rounded-[8px] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4] transition-colors"
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -673,7 +786,7 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
         {isRefreshing && <div className="absolute inset-0 z-10 flex flex-col justify-between py-[8px] gap-[8px]">
           {[1,2,3].map(i => <Sk key={i} w="w-full" h="h-[20px]" />)}
         </div>}
-        {!isRefreshing && <svg
+        <svg
           ref={svgRef}
           className="absolute inset-0 w-full h-full overflow-visible"
           viewBox={`0 0 ${W} ${H}`}
@@ -712,9 +825,9 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
               />
             );
           })}
-        </svg>}
+        </svg>
 
-        {!isRefreshing && showComparison && hovered !== null && (
+        {showComparison && hovered !== null && (
           <>
             <span
               className="pointer-events-none absolute size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f5a03b]"
@@ -728,7 +841,7 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
         )}
 
         {/* Tooltip card */}
-        {!isRefreshing && hovered !== null && (() => {
+        {hovered !== null && (() => {
           const pct = xPct(hovered) / 100;
           const side = pct > 0.65 ? "right" : "left";
           return (
@@ -977,7 +1090,12 @@ function ExportModal({ onClose, onExport }: { onClose: () => void; onExport: (la
 
 // ─── More Menu ───────────────────────────────────────────────────────────────
 
+const imgMenuViews  = `${assetPathPrefix}/c4128.svg`;
+const imgMenuDivider = `${assetPathPrefix}/0f2e1.svg`;
 const imgMenuBin = `${assetPathPrefix}/b8944.svg`;
+const imgMenuExport = `${assetPathPrefix}/663bf.svg`;
+const imgMenuArrow = `${assetPathPrefix}/ee956.svg`;
+const imgMenuDivider2 = `${assetPathPrefix}/86600.svg`;
 const imgModalClose = `${assetPathPrefix}/a578b.svg`;
 
 // ─── Save View Modal ──────────────────────────────────────────────────────────
@@ -996,6 +1114,60 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
         <path d="M5 8l2 2 4-4" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
       {message}
+    </div>
+  );
+}
+
+function SavedFiltersGuidance({ targetRef, onDismiss }: { targetRef: React.RefObject<HTMLDivElement | null>; onDismiss: () => void }) {
+  const [position, setPosition] = useState<{ top: number; left: number; arrowRight: number } | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function updatePosition() {
+      const target = targetRef.current;
+      const tooltip = tooltipRef.current;
+      if (!target || !tooltip) return;
+
+      const width = tooltip.getBoundingClientRect().width;
+      const bounds = target.getBoundingClientRect();
+      const left = Math.max(16, Math.min(bounds.right - width, window.innerWidth - width - 16));
+      const arrowCenter = bounds.left + bounds.width / 2 - left;
+      setPosition({ top: bounds.bottom + 10, left, arrowRight: Math.max(12, Math.min(width - 12, width - arrowCenter - 5)) });
+    }
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [targetRef]);
+
+  return (
+    <div
+      ref={tooltipRef}
+      role="status"
+      className="fixed z-[90] w-fit max-w-[calc(100vw-32px)] rounded-[8px] border border-[#e3e2dd] bg-white px-[14px] py-[12px] shadow-[0px_4px_16px_0px_rgba(18,18,18,0.14)]"
+      style={{ top: position?.top ?? -1000, left: position?.left ?? 16, visibility: position ? "visible" : "hidden" }}
+    >
+      <span
+        aria-hidden="true"
+        className="absolute top-[-6px] size-[10px] rotate-45 border-l border-t border-[#e3e2dd] bg-white"
+        style={{ right: position?.arrowRight ?? 12 }}
+      />
+      <div className="relative flex items-center gap-[16px]">
+        <p className="font-['Inter:Regular'] text-[#22201f] text-[13px] leading-[18px]">
+          Saved filters live here
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 rounded-[6px] px-[8px] py-[4px] font-['Inter:Semibold'] text-[#1e72c4] text-[12px] leading-[16px] hover:bg-[#f2f0ea]"
+        >
+          Got it
+        </button>
+      </div>
     </div>
   );
 }
@@ -1040,17 +1212,17 @@ function SaveViewModal({
         {/* Heading */}
         <div className="flex flex-col gap-[4px]">
           <div className="flex gap-[16px] items-start">
-            <p className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[32px] flex-1 min-w-0">Save view</p>
+            <p className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[32px] flex-1 min-w-0">Save filters</p>
             <button onClick={onClose} className="shrink-0 size-[16px] mt-[8px] hover:opacity-70 transition-opacity">
               <img alt="Close" className="block size-full" src={imgModalClose} />
             </button>
           </div>
           <p className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px]">
-            Keep these filters and its comparisons and open it again with fresh data.
+            Keep your filters and comparisons so you can easily jump back in.
           </p>
         </div>
 
-        {/* Mode selection — only when saved views exist */}
+        {/* Mode selection — only when saved filters exist */}
         {hasExisting && (
           <div className="flex flex-col gap-[12px]">
             <label className="flex items-center gap-[10px] cursor-pointer">
@@ -1060,7 +1232,7 @@ function SaveViewModal({
               >
                 {mode === "existing" && <div className="size-[8px] rounded-full bg-[#1e72c4]" />}
               </div>
-              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("existing")}>Save to existing view</span>
+              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("existing")}>Save to existing filter</span>
             </label>
             {mode === "existing" && (
               <div className="relative ml-[26px] w-[calc(100%-26px)]">
@@ -1085,13 +1257,13 @@ function SaveViewModal({
               >
                 {mode === "new" && <div className="size-[8px] rounded-full bg-[#1e72c4]" />}
               </div>
-              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("new")}>Save new view</span>
+              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("new")}>Save new filter</span>
             </label>
             {mode === "new" && (
               <div className="flex flex-col gap-[4px] ml-[26px]" style={{ width: "calc(100% - 26px)" }}>
                 <input
                   className="bg-white border border-[#bbbab6] rounded-[8px] h-[40px] px-[12px] font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] w-full outline-none focus:border-[#1e72c4] focus:ring-1 focus:ring-[#1e72c4]"
-                  placeholder="View name"
+                  placeholder="Filter name"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   autoFocus
@@ -1101,7 +1273,7 @@ function SaveViewModal({
           </div>
         )}
 
-        {/* Simple name input — when no saved views exist */}
+        {/* Simple name input — when no saved filters exist */}
         {!hasExisting && (
           <div className="flex flex-col gap-[4px]">
             <label className="font-['Inter:Semi Bold'] font-semibold text-[#22201f] text-[14px] leading-[20px] tracking-[0.014px]">Name</label>
@@ -1127,102 +1299,81 @@ function SaveViewModal({
   );
 }
 
-// ─── Saved Filters Menu ───────────────────────────────────────────────────────
+// ─── More Menu ────────────────────────────────────────────────────────────────
 
-function SavedFiltersMenu({
+function MoreMenu({
   savedFilters,
-  defaultView,
   onClose,
-  onApplyDefault,
+  onExport,
   onApplyFilter,
-  onSetDefault,
   onDeleteFilter,
 }: {
   savedFilters: Array<{ name: string }>;
-  defaultView: string | null;
   onClose: () => void;
-  onApplyDefault: () => void;
+  onExport: () => void;
   onApplyFilter: (name: string) => void;
-  onSetDefault: (name: string) => void;
   onDeleteFilter: (name: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [viewsHovered, setViewsHovered] = useState(false);
   useDropdownClose(ref, onClose);
 
   return (
     <div
       ref={ref}
-      className="absolute top-[40px] left-0 z-50 bg-white border border-[#e3e2dd] rounded-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] w-[240px] overflow-hidden p-[4px]"
+      className="absolute top-[40px] right-0 z-50 bg-white border border-[#e3e2dd] rounded-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] w-[200px] overflow-visible p-[4px]"
     >
-      <div className="group flex items-center gap-[2px] rounded-[6px] px-[12px] py-[8px] hover:bg-[#f9f8f4]">
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]"
-          onClick={() => { onApplyDefault(); onClose(); }}
-        >
-          Default
-        </button>
-        <span className="group/star relative shrink-0">
-          <button
-            type="button"
-            aria-label="Set system filters as default view"
-            aria-pressed={defaultView === "__system__"}
-            disabled={defaultView === "__system__"}
-            className={`rounded-[4px] p-[4px] transition-opacity hover:bg-[#edeae4] ${defaultView === "__system__" ? "text-[#22201f]" : "text-[#62615d] opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
-            onClick={() => onSetDefault("__system__")}
-          >
-            <svg aria-hidden="true" className="size-[16px]" viewBox="0 0 16 16" fill="none">
-              <path d="m8 1.5 1.9 3.85 4.25.62-3.08 3 .73 4.23L8 11.2l-3.8 2 .73-4.23-3.08-3 4.25-.62L8 1.5Z" fill={defaultView === "__system__" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-[60] mb-[6px] hidden -translate-x-1/2 whitespace-nowrap rounded-[6px] bg-[#22201f] px-[8px] py-[6px] font-['Inter:Regular'] text-[12px] leading-[16px] text-white group-hover/star:block">
-            {defaultView === "__system__" ? "System filters are the default view" : "Set system filters as default"}
-          </span>
-        </span>
+      {/* Saved filters row with submenu */}
+      <div
+        className="relative flex gap-[8px] h-[36px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors cursor-default"
+        onMouseEnter={() => setViewsHovered(true)}
+        onMouseLeave={() => setViewsHovered(false)}
+      >
+        <img alt="" className="shrink-0 size-[16px]" src={imgMenuViews} />
+        <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1">Saved filters</span>
+        <img alt="" className="shrink-0 size-[16px]" src={imgMenuArrow} />
+
+        {viewsHovered && (
+          <div className="absolute top-[-4px] left-[-212px] z-50 bg-white border border-[#e3e2dd] rounded-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] w-[208px] p-[4px]">
+            {savedFilters.length === 0 ? (
+              <div className="px-[12px] py-[10px] flex flex-col gap-[2px]">
+                <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">No saved filters</span>
+                <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">Save a filter set to access it here.</span>
+              </div>
+            ) : (
+              savedFilters.map((f) => (
+                <div
+                  key={f.name}
+                  className="group flex gap-[8px] h-[36px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
+                >
+                  <button
+                    className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 min-w-0 truncate text-left"
+                    onClick={() => { onApplyFilter(f.name); onClose(); }}
+                  >
+                    {f.name}
+                  </button>
+                  <button
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => { e.stopPropagation(); onDeleteFilter(f.name); }}
+                    title="Delete"
+                  >
+                    <img alt="Delete" className="block size-[16px]" src={imgMenuBin} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
-      <div className="my-[4px] h-px w-full bg-[#e3e2dd]" />
-      <div className="px-[12px] py-[8px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">My saved views</div>
-      {savedFilters.length === 0 ? (
-        <div className="mx-[4px] mb-[4px] rounded-[8px] bg-[#f9f8f4] px-[12px] py-[16px] text-center">
-          <p className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">No saved views yet</p>
-          <p className="mt-[4px] font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">Save your filter selection to quickly access it later.</p>
-        </div>
-      ) : savedFilters.map((filter) => (
-        <div key={filter.name} className="group flex items-center gap-[2px] rounded-[6px] px-[12px] py-[8px] hover:bg-[#f9f8f4]">
-          <button
-            type="button"
-            className="min-w-0 flex-1 truncate text-left font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]"
-            onClick={() => { onApplyFilter(filter.name); onClose(); }}
-          >
-            {filter.name}
-          </button>
-          <span className="group/star relative shrink-0">
-            <button
-              type="button"
-              aria-label={`Set ${filter.name} as default view`}
-              aria-pressed={defaultView === filter.name}
-              disabled={defaultView === filter.name}
-              className={`rounded-[4px] p-[4px] transition-opacity hover:bg-[#edeae4] ${defaultView === filter.name ? "text-[#22201f]" : "text-[#62615d] opacity-0 group-hover:opacity-100 focus-visible:opacity-100"}`}
-              onClick={() => onSetDefault(filter.name)}
-            >
-              <svg aria-hidden="true" className="size-[16px]" viewBox="0 0 16 16" fill="none">
-                <path d="m8 1.5 1.9 3.85 4.25.62-3.08 3 .73 4.23L8 11.2l-3.8 2 .73-4.23-3.08-3 4.25-.62L8 1.5Z" fill={defaultView === filter.name ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-[60] mb-[6px] hidden -translate-x-1/2 whitespace-nowrap rounded-[6px] bg-[#22201f] px-[8px] py-[6px] font-['Inter:Regular'] text-[12px] leading-[16px] text-white group-hover/star:block">
-              {defaultView === filter.name ? "Default view" : "Set as default"}
-            </span>
-          </span>
-          <button
-            type="button"
-            aria-label={`Delete ${filter.name}`}
-            className="shrink-0 rounded-[4px] p-[4px] text-[#8e1311] opacity-60 hover:bg-[#edeae4] hover:opacity-100"
-            onClick={() => onDeleteFilter(filter.name)}
-          >
-            <img alt="" className="block size-[16px]" src={imgMenuBin} />
-          </button>
-        </div>
-      ))}
+
+      {/* Export */}
+      <button
+        onClick={onExport}
+        className="flex gap-[8px] h-[36px] items-center px-[12px] py-[8px] w-full rounded-[6px] hover:bg-[#f9f8f4] transition-colors"
+      >
+        <img alt="" className="shrink-0 size-[16px]" src={imgMenuExport} />
+        <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 text-left">Export</span>
+      </button>
     </div>
   );
 }
@@ -1258,9 +1409,8 @@ const prototypeVersions = [
   {
     version: "Version 2",
     updated: "28 September 2026",
-    description: "Saved filters as \"views\" and apply inline with filters.",
+    description: "Saved filters, and filtering pattern based on the new prod management system.",
     href: `${import.meta.env.BASE_URL}version-2`,
-    status: "[WIP]",
   },
 ];
 
@@ -1298,11 +1448,6 @@ function PrototypeHome() {
                     <span className="font-['Inter:Regular'] text-[#85837e] text-[12px] leading-[16px]">
                       Updated {prototype.updated}
                     </span>
-                    {"status" in prototype && prototype.status && (
-                      <span className="rounded-full bg-[#fff4db] px-[8px] py-[3px] font-['Inter:Medium'] text-[#8a5a00] text-[11px] leading-[14px]">
-                        {prototype.status}
-                      </span>
-                    )}
                   </div>
                   <h3 className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[26px]">
                     {prototype.version}
@@ -1333,33 +1478,26 @@ function PrototypeHome() {
   );
 }
 
-export default function App() {
-  const versionOnePath = `${import.meta.env.BASE_URL}version-1`.replace(/\/+$/, "");
-  const versionTwoPath = `${import.meta.env.BASE_URL}version-2`.replace(/\/+$/, "");
-  const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
-
-  if (currentPath === versionOnePath) return <VersionOnePrototype />;
-  if (currentPath === versionTwoPath) return <VersionTwoA />;
-  return <PrototypeHome />;
-}
-
-function VersionTwoA() {
+export default function VersionOne() {
   return <ReportsPrototype />;
 }
 
 function ReportsPrototype() {
-  const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
-  const [selectedRegisters, setSelectedRegisters] = useState<string[]>([]);
-  const [taxSelected, setTaxSelected] = useState("Inclusive");
-  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const [siteSelected, setSiteSelected] = useState<{ id: string; name: string }>({ id: "all", name: "All sites" });
+  const [showSiteDropdown, setShowSiteDropdown] = useState(false);
   const [dateSelected, setDateSelected] = useState<{ id: string; label: string }>({ id: "today", label: "Today" });
-  const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>({ id: "last-same-day", label: "Last Tuesday" });
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>({ id: "last-same-day", label: "Last Thursday" });
   const showComparison = compareSelected.id !== "none";
-  const [showSavedViews, setShowSavedViews] = useState(false);
-  const [activeViewName, setActiveViewName] = useState<string | null>(null);
-  const [defaultView, setDefaultView] = useState<string | null>("__system__");
+  const [showCompareDropdown, setShowCompareDropdown] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<AppliedFilter[]>([]);
+  const [drawerState, setDrawerState] = useState<CheckboxState>(DEFAULT_CHECKBOXES);
+  const [hasUnapplied, setHasUnapplied] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showSavedFiltersGuidance, setShowSavedFiltersGuidance] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -1389,132 +1527,160 @@ function ReportsPrototype() {
 
   type SavedFilter = {
     name: string;
-    sites: string[];
-    registers: string[];
+    site: { id: string; name: string };
     date: { id: string; label: string };
     compare: { id: string; label: string };
-    tax: string;
+    applied: AppliedFilter[];
+    drawer: CheckboxState;
   };
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
-  const savedFiltersRef = useRef<HTMLDivElement>(null);
-  const selectedSites = SITE_OPTIONS.slice(1).filter((site) => selectedSiteIds.includes(site.id));
-  const siteLabel = selectedSites.length === 0
-    ? "All sites"
-    : selectedSites.length > 1
-      ? `${selectedSites.length} sites`
-      : selectedSites[0].name;
-  const registerLabel = selectedRegisters.length > 0 ? `${selectedRegisters.length} selected` : "All";
+  const moreRef = useRef<HTMLDivElement>(null);
+  const siteChipRef = useRef<HTMLDivElement>(null);
 
   const isFilteredFromDefault =
-    selectedSiteIds.length > 0 ||
-    selectedRegisters.length > 0 ||
+    siteSelected.id !== "all" ||
     dateSelected.id !== "today" ||
     compareSelected.id !== "last-same-day" ||
-    taxSelected !== "Inclusive";
+    appliedFilters.length > 0;
 
   const isSaved = savedFilters.some(
     (f) =>
-      JSON.stringify(f.sites) === JSON.stringify(selectedSiteIds) &&
-      JSON.stringify(f.registers) === JSON.stringify(selectedRegisters) &&
+      f.site.id === siteSelected.id &&
       f.date.id === dateSelected.id &&
       f.compare.id === compareSelected.id &&
-      f.tax === taxSelected
+      JSON.stringify(f.applied) === JSON.stringify(appliedFilters)
   );
 
   function applyFilter(f: SavedFilter) {
-    setSelectedSiteIds(f.sites);
-    setSelectedRegisters(f.registers);
+    setSiteSelected(f.site);
     setDateSelected(f.date);
     setCompareSelected(f.compare);
-    setTaxSelected(f.tax);
-    setActiveViewName(f.name);
-  }
-
-  function applyDefaultView() {
-    const savedDefault = savedFilters.find((filter) => filter.name === defaultView);
-    if (!savedDefault) {
-      reset();
-      return;
-    }
-    applyFilter(savedDefault);
-    setActiveViewName("Default");
+    setAppliedFilters(f.applied);
+    setDrawerState(f.drawer);
+    setHasUnapplied(false);
   }
 
   function saveCurrentFilters(name: string) {
+    const isFirstSavedFilter = savedFilters.length === 0;
     setSavedFilters((prev) => [
       ...prev,
       {
         name,
-        sites: selectedSiteIds,
-        registers: selectedRegisters,
+        site: siteSelected,
         date: dateSelected,
         compare: compareSelected,
-        tax: taxSelected,
+        applied: appliedFilters,
+        drawer: drawerState,
       },
     ]);
-    setActiveViewName(name);
     setToast(`"${name}" saved`);
+    if (isFirstSavedFilter) setShowSavedFiltersGuidance(true);
   }
 
   function deleteFilter(name: string) {
-    const remainingFilters = savedFilters.filter((filter) => filter.name !== name);
-    setSavedFilters(remainingFilters);
-    if (defaultView === name) setDefaultView(remainingFilters.length === 0 ? "__system__" : null);
+    setSavedFilters((prev) => prev.filter((f) => f.name !== name));
   }
 
   function updateFilter(name: string) {
     setSavedFilters((prev) =>
       prev.map((f) =>
         f.name === name
-          ? { ...f, sites: selectedSiteIds, registers: selectedRegisters, date: dateSelected, compare: compareSelected, tax: taxSelected }
+          ? { ...f, site: siteSelected, date: dateSelected, compare: compareSelected, applied: appliedFilters, drawer: drawerState }
           : f
       )
     );
-    setActiveViewName(name);
     setToast(`"${name}" updated`);
   }
 
-  function reset() {
-    setSelectedSiteIds([]);
-    setSelectedRegisters([]);
-    setDateSelected({ id: "today", label: "Today" });
-    setCompareSelected({ id: "last-same-day", label: "Last Tuesday" });
-    setTaxSelected("Inclusive");
-    setActiveViewName(null);
-    setOpenFilter(null);
+  function openDrawer() {
+    setDrawerOpen(true);
   }
 
-  function toggleSite(id: string) {
-    setActiveViewName(null);
-    if (id === "all") {
-      setSelectedSiteIds([]);
-      setSelectedRegisters([]);
-      return;
+  function handleApply(state: CheckboxState) {
+    setDrawerState(state);
+    const newFilters: AppliedFilter[] = [];
+
+    const selectedRegisters = [
+      state.registerA && "Register A",
+      state.registerB && "Register B",
+      state.registerC && "Register C",
+      state.registerD && "Register D",
+      state.registerE && "Register E",
+      state.registerF && "Register F",
+    ].filter(Boolean) as string[];
+
+    if (selectedRegisters.length > 0) {
+      newFilters.push({
+        id: "registers",
+        label: "Registers",
+        value: `${selectedRegisters.length} register${selectedRegisters.length > 1 ? "s" : ""}`,
+      });
     }
 
-    const nextIds = selectedSiteIds.includes(id)
-      ? selectedSiteIds.filter((selectedId) => selectedId !== id)
-      : [...selectedSiteIds, id];
-    setSelectedSiteIds(nextIds);
-    setSelectedRegisters((current) => current.filter((key) => nextIds.some((siteId) => key.startsWith(`${siteId}:`))));
+    const selectedGroups = [
+      state.food && "Food",
+      state.drinks && "Drinks",
+      state.other && "Other",
+    ].filter(Boolean) as string[];
+
+    if (selectedGroups.length > 0) {
+      newFilters.push({
+        id: "groups",
+        label: "Reporting groups",
+        value: `${selectedGroups.length} selected`,
+      });
+    }
+
+    const selectedCategories = [
+      state.alcohol && "Alcohol",
+      state.coffee && "Coffee",
+      state.pastries && "Pastries",
+      state.otherDrinks && "Other drinks",
+      state.toasties && "Toasties",
+      state.sweets && "Sweets",
+    ].filter(Boolean) as string[];
+
+    if (selectedCategories.length > 0) {
+      newFilters.push({
+        id: "categories",
+        label: "Category",
+        value: `${selectedCategories.length} selected`,
+      });
+    }
+
+    setAppliedFilters(newFilters);
+    setHasUnapplied(newFilters.length > 0);
   }
 
-  function toggleRegister(key: string) {
-    setActiveViewName(null);
-    setSelectedRegisters((current) => current.includes(key)
-      ? current.filter((register) => register !== key)
-      : [...current, key]);
+  function removeFilter(id: string) {
+    const updated = appliedFilters.filter((f) => f.id !== id);
+    setAppliedFilters(updated);
+    if (updated.length === 0) setHasUnapplied(false);
+    // Reset relevant checkboxes
+    if (id === "registers") {
+      setDrawerState((prev) => ({
+        ...prev,
+        registerA: false, registerB: false, registerC: false,
+        registerD: false, registerE: false, registerF: false,
+      }));
+    } else if (id === "groups") {
+      setDrawerState((prev) => ({ ...prev, food: false, drinks: false, other: false }));
+    } else if (id === "categories") {
+      setDrawerState((prev) => ({
+        ...prev,
+        alcohol: false, coffee: false, pastries: false,
+        otherDrinks: false, toasties: false, sweets: false,
+      }));
+    }
   }
 
-  function toggleMenu(id: string) {
-    setOpenFilter((current) => current === id ? null : id);
-  }
-
-  function chooseDate(id: string, label: string) {
-    setActiveViewName(null);
-    setDateSelected({ id, label });
-    const options = COMPARE_TO_OPTIONS[id] ?? COMPARE_TO_OPTIONS["today"];
-    setCompareSelected({ id: options[0].id, label: options[0].label });
+  function reset() {
+    setAppliedFilters([]);
+    setHasUnapplied(false);
+    setDrawerState(DEFAULT_CHECKBOXES);
+    setSiteSelected({ id: "all", name: "All sites" });
+    setDateSelected({ id: "today", label: "Today" });
+    setCompareSelected({ id: "last-same-day", label: "Last Thursday" });
   }
 
   return (
@@ -1549,119 +1715,84 @@ function ReportsPrototype() {
           {/* Scrollable content area */}
           <div className="flex flex-col gap-[24px] items-start p-[24px] w-full overflow-y-auto flex-1">
             {/* Filter bar */}
-            <div className="flex w-full flex-wrap items-start gap-[8px]">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
-              <div ref={savedFiltersRef} className="relative">
-                <DefaultFilterChip
-                  label="View"
-                  value={activeViewName ?? "Default"}
-                  valueClassName={activeViewName ? "max-w-[120px]" : ""}
-                  onClick={() => setShowSavedViews((visible) => !visible)}
-                />
-                {showSavedViews && (
-                  <SavedFiltersMenu
-                    savedFilters={savedFilters}
-                    defaultView={defaultView}
-                    onClose={() => setShowSavedViews(false)}
-                    onApplyDefault={applyDefaultView}
-                    onApplyFilter={(name) => {
-                      const filter = savedFilters.find((savedFilter) => savedFilter.name === name);
-                      if (filter) applyFilter(filter);
-                    }}
-                    onSetDefault={setDefaultView}
-                    onDeleteFilter={(name) => {
-                      deleteFilter(name);
-                      if (activeViewName === name) setActiveViewName(null);
-                    }}
-                  />
-                )}
-              </div>
-              <div aria-hidden="true" className="mx-[4px] h-[24px] w-px shrink-0 bg-[#e3e2dd]" />
-              <div className="relative">
+            <div className="flex gap-[16px] items-start w-full">
+              <div className="flex flex-1 gap-[8px] items-start min-w-0 flex-wrap">
+                {/* Default: Site chip */}
+                <div ref={siteChipRef} className="relative">
                   <DefaultFilterChip
                     label="Site"
-                    value={siteLabel}
-                    valueClassName={selectedSites.length === 1 ? "max-w-[145px]" : ""}
-                    onClick={() => toggleMenu("site")}
+                    value={siteSelected.name}
+                    onClick={() => { setShowSiteDropdown((v) => !v); setShowDateDropdown(false); setShowCompareDropdown(false); }}
                   />
-                  {openFilter === "site" && (
+                  {showSiteDropdown && (
                     <SiteDropdown
-                      selectedIds={selectedSiteIds}
-                      onToggle={toggleSite}
-                      onClose={() => setOpenFilter(null)}
-                    />
-                  )}
-              </div>
-
-              <div className="relative">
-                  <DefaultFilterChip
-                    label="Date"
-                    value={dateSelected.label}
-                    onClick={() => toggleMenu("date")}
-                  />
-                  {openFilter === "date" && (
-                    <DateDropdown
-                      selected={dateSelected.id}
-                      onSelect={chooseDate}
-                      onClose={() => setOpenFilter(null)}
-                    />
-                  )}
-              </div>
-
-              <div className="relative">
-                  <DefaultFilterChip
-                    label="Compare to"
-                    value={compareSelected.label}
-                    onClick={() => toggleMenu("compare")}
-                  />
-                  {openFilter === "compare" && (
-                    <CompareToDropdown
-                      dateId={dateSelected.id}
-                      selected={compareSelected.id}
-                      onSelect={(id, label) => {
-                        setActiveViewName(null);
-                        setCompareSelected({ id, label });
-                      }}
-                      onClose={() => setOpenFilter(null)}
-                    />
-                  )}
-              </div>
-
-              {selectedSites.length > 0 && (
-                <div className="relative">
-                  <DefaultFilterChip
-                    label="Register"
-                    value={registerLabel}
-                    onClick={() => toggleMenu("register")}
-                  />
-                  {openFilter === "register" && (
-                    <RegisterDropdown
-                      selectedSites={selectedSites}
-                      selectedRegisters={selectedRegisters}
-                      onToggle={toggleRegister}
-                      onClose={() => setOpenFilter(null)}
+                      selected={siteSelected.id}
+                      onSelect={(id, name) => setSiteSelected({ id, name })}
+                      onClose={() => setShowSiteDropdown(false)}
                     />
                   )}
                 </div>
-              )}
 
-              <div className="relative">
-                <DefaultFilterChip label="Tax" value={taxSelected} onClick={() => toggleMenu("tax")} />
-                {openFilter === "tax" && (
-                  <TaxDropdown
-                    selected={taxSelected}
-                    onSelect={(value) => {
-                      setActiveViewName(null);
-                      setTaxSelected(value);
-                    }}
-                    onClose={() => setOpenFilter(null)}
+                {/* Default: Date chip */}
+                <div className="relative">
+                  <DefaultFilterChip
+                    label="Date"
+                    value={dateSelected.label}
+                    onClick={() => { setShowDateDropdown((v) => !v); setShowCompareDropdown(false); setShowSiteDropdown(false); }}
                   />
-                )}
-              </div>
+                  {showDateDropdown && (
+                    <DateDropdown
+                      selected={dateSelected.id}
+                      onSelect={(id, label) => {
+                        setDateSelected({ id, label });
+                        // reset compare-to to first available option for the new date
+                        const opts = COMPARE_TO_OPTIONS[id] ?? COMPARE_TO_OPTIONS["today"];
+                        setCompareSelected({ id: opts[0].id, label: opts[0].label });
+                      }}
+                      onClose={() => setShowDateDropdown(false)}
+                    />
+                  )}
+                </div>
+
+                {/* Default: Compare to chip */}
+                <div className="relative">
+                  <DefaultFilterChip
+                    label="Compare to"
+                    value={compareSelected.label}
+                    onClick={() => { setShowCompareDropdown((v) => !v); setShowDateDropdown(false); setShowSiteDropdown(false); }}
+                  />
+                  {showCompareDropdown && (
+                    <CompareToDropdown
+                      dateId={dateSelected.id}
+                      selected={compareSelected.id}
+                      onSelect={(id, label) => setCompareSelected({ id, label })}
+                      onClose={() => setShowCompareDropdown(false)}
+                    />
+                  )}
+                </div>
+
+                {/* Applied (removable) filters */}
+                {appliedFilters.map((f) => (
+                  <RemovableFilterChip
+                    key={f.id}
+                    label={f.label}
+                    value={f.value}
+                    onRemove={() => removeFilter(f.id)}
+                    onClick={openDrawer}
+                  />
+                ))}
+
+                {/* Filter icon button */}
+                <button
+                  onClick={openDrawer}
+                  className="flex items-center justify-center rounded-full size-[32px] hover:bg-[#edeae4] transition-colors"
+                >
+                  <img alt="" className="block size-[16px]" src={imgFilter} />
+                </button>
               </div>
 
               {/* Right actions */}
-              <div className="ml-auto flex shrink-0 items-center gap-[8px]">
+              <div className="flex items-start gap-[8px] shrink-0">
                 {isFilteredFromDefault && (
                   <>
                     <button
@@ -1673,25 +1804,36 @@ function ReportsPrototype() {
                     {!isSaved && (
                       <button
                         onClick={() => setShowSaveModal(true)}
-                        className="flex h-[32px] items-center justify-center rounded-[8px] bg-[#1e72c4] px-[12px] py-[4px] text-white transition-colors hover:bg-[#1a64ae]"
+                        className="bg-white border border-[#e3e2dd] flex h-[32px] items-center justify-center px-[12px] py-[4px] rounded-[8px] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4] transition-colors"
                       >
-                        <span className="font-['Inter:Semi Bold'] font-semibold text-white text-[14px] leading-[20px] tracking-[0.014px] whitespace-nowrap">Save view</span>
+                        <span className="font-['Inter:Semi Bold'] font-semibold text-[#22201f] text-[14px] leading-[20px] tracking-[0.014px] whitespace-nowrap">Save</span>
                       </button>
                     )}
                   </>
                 )}
-                <button
-                  type="button"
-                  aria-label="Export"
-                  title="Export"
-                  onClick={() => setShowExportModal(true)}
-                  className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+                <div
+                  ref={moreRef}
+                  className={`relative rounded-full ${showSavedFiltersGuidance ? "z-[91] ring-[5px] ring-[#1e72c4]/20 shadow-[0_0_0_3px_rgba(30,114,196,0.12)]" : ""}`}
                 >
-                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none">
-                    <path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+                  <button
+                    onClick={() => setShowMoreMenu((v) => !v)}
+                    className="flex items-center justify-center rounded-full size-[32px] hover:bg-[#edeae4] transition-colors"
+                  >
+                    <img alt="" className="block size-[16px]" src={imgMore} />
+                  </button>
+                  {showMoreMenu && (
+                    <MoreMenu
+                      savedFilters={savedFilters}
+                      onClose={() => setShowMoreMenu(false)}
+                      onExport={() => { setShowMoreMenu(false); setShowExportModal(true); }}
+                      onApplyFilter={(name) => {
+                        const f = savedFilters.find((s) => s.name === name);
+                        if (f) applyFilter(f);
+                      }}
+                      onDeleteFilter={deleteFilter}
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1830,6 +1972,20 @@ function ReportsPrototype() {
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
 
+      {showSavedFiltersGuidance && (
+        <SavedFiltersGuidance
+          targetRef={moreRef}
+          onDismiss={() => setShowSavedFiltersGuidance(false)}
+        />
+      )}
+
+      {/* Filter Drawer */}
+      <FilterDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        initialState={drawerState}
+        onApply={handleApply}
+      />
     </div>
   );
 }
