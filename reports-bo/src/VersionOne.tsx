@@ -1402,13 +1402,13 @@ function WidgetCard({ children, className = "" }: { children: React.ReactNode; c
 const prototypeVersions = [
   {
     version: "Version 1",
-    updated: "28 September 2026",
+    updated: "24 September 2026",
     description: "Saved filters, and filtering pattern based on the new prod management system.",
     href: `${import.meta.env.BASE_URL}version-1`,
   },
   {
     version: "Version 2",
-    updated: "28 September 2026",
+    updated: "29 September 2026",
     description: "Saved filters, and filtering pattern based on the new prod management system.",
     href: `${import.meta.env.BASE_URL}version-2`,
   },

@@ -33,7 +33,7 @@ const imgDivider = `${assetPathPrefix}/973a3.svg`;
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-function Sidebar() {
+function Sidebar({ activeReport, onSelectReport }: { activeReport: "Sales overview" | "Product sales"; onSelectReport: (report: "Sales overview" | "Product sales") => void }) {
   return (
     <div className="flex flex-col gap-[12px] h-screen items-start p-[8px] shrink-0 w-[200px] bg-[#f9f8f4] sticky top-0">
       {/* Back Office header */}
@@ -62,14 +62,19 @@ function Sidebar() {
             <div className="flex items-center justify-start px-[8px] w-full rounded-[8px]">
               <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">All reports</span>
             </div>
-            {/* Active item */}
-            <div className="bg-[#edeae4] flex h-[32px] items-center justify-center p-[8px] rounded-[8px] w-full">
-              <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1">Sales overview</span>
-            </div>
-            <NavChild label="Sales feed" />
-            <NavChild label="Sales by site" />
-            <NavChild label="Sales by product" />
-            <NavChild label="Sales by time" />
+            {(["Sales overview", "Product sales"] as const).map((report) => (
+              <button
+                key={report}
+                type="button"
+                aria-current={activeReport === report ? "page" : undefined}
+                onClick={() => onSelectReport(report)}
+                className={`flex h-[32px] w-full items-center justify-center rounded-[8px] p-[8px] text-left transition-colors ${activeReport === report ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
+              >
+                <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === report ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
+                  {report}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -105,14 +110,6 @@ function NavItem({ icon, label, hasArrow }: { icon: string; label: string; hasAr
       <img alt="" className="block shrink-0 size-[16px]" src={icon} />
       <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 min-w-0 truncate">{label}</span>
       {hasArrow && <img alt="" className="block shrink-0 size-[16px]" src={imgArrowRight} />}
-    </div>
-  );
-}
-
-function NavChild({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-center px-[8px] py-[6px] rounded-[8px] w-full cursor-pointer hover:bg-[#edeae4] transition-colors">
-      <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1 min-w-0 truncate">{label}</span>
     </div>
   );
 }
@@ -160,19 +157,21 @@ function DefaultFilterChip({
   onClick,
   disabled = false,
   valueClassName = "",
+  chipClassName = "",
 }: {
   label: string;
   value: string;
   onClick?: () => void;
   disabled?: boolean;
   valueClassName?: string;
+  chipClassName?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-[32px] max-w-full items-center gap-[6px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] text-left shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-[#f9f8f4]"}`}
+      className={`flex h-[32px] max-w-full items-center gap-[6px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] text-left shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-[#f9f8f4]"} ${chipClassName}`}
     >
       <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">{label}</span>
       <span className={`min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px] ${valueClassName}`}>{value}</span>
@@ -183,6 +182,61 @@ function DefaultFilterChip({
 // ─── Site Dropdown ───────────────────────────────────────────────────────────
 
 type SiteOption = { id: string; name: string };
+
+type ProductSalesView = {
+  name: string;
+  salesBy: string;
+  sites: string[];
+  registers: string[];
+  date: { id: string; label: string };
+  compare: { id: string; label: string };
+  products: string[];
+  categories: string[];
+  reportingGroups: string[];
+  tax: string;
+  visibleFilters: string[];
+};
+
+type SalesOverviewView = {
+  name: string;
+  sites: string[];
+  registers: string[];
+  date: { id: string; label: string };
+  compare: { id: string; label: string };
+  tax: string;
+};
+
+type ProductSalesStorage = {
+  savedViews: ProductSalesView[];
+  defaultView: string | null;
+};
+
+type SalesOverviewStorage = {
+  savedFilters: SalesOverviewView[];
+  defaultView: string | null;
+};
+
+const PRODUCT_SALES_STORAGE_KEY = "reports-bo:version-2:product-sales";
+const SALES_OVERVIEW_STORAGE_KEY = "reports-bo:version-2:sales-overview";
+
+function loadStoredValue<T>(key: string, fallback: T): T {
+  try {
+    const stored = window.localStorage.getItem(key);
+    return stored ? { ...fallback, ...JSON.parse(stored) } : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function getStoredSalesDefault() {
+  const stored = loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" });
+  return stored.savedFilters.find((view) => view.name === stored.defaultView);
+}
+
+function getStoredProductSalesDefault() {
+  const stored = loadStoredValue<ProductSalesStorage>(PRODUCT_SALES_STORAGE_KEY, { savedViews: [], defaultView: "__system__" });
+  return stored.savedViews.find((view) => view.name === stored.defaultView);
+}
 
 const SITE_OPTIONS: SiteOption[] = [
   { id: "all", name: "All sites" },
@@ -271,20 +325,25 @@ function RegisterDropdown({
   selectedRegisters,
   onToggle,
   onClose,
+  searchable = false,
 }: {
   selectedSites: SiteOption[];
   selectedRegisters: string[];
   onToggle: (key: string) => void;
   onClose: () => void;
+  searchable?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useDropdownClose(ref, onClose);
+  const [query, setQuery] = useState("");
   const options = selectedSites.flatMap((site) =>
     (REGISTERS_BY_SITE[site.id] ?? []).map((name) => ({ key: `${site.id}:${name}`, site: site.name, name }))
   );
+  const filteredOptions = options.filter((option) => `${option.site} ${option.name}`.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div ref={ref} className="absolute top-[40px] left-0 z-50 w-[min(320px,calc(100vw-32px))] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
+      {searchable && <input aria-label="Search registers" autoFocus placeholder="Search registers" value={query} onChange={(event) => setQuery(event.target.value)} className="mx-[4px] mt-[4px] h-[36px] w-[calc(100%-8px)] rounded-[6px] border-b border-[#e3e2dd] px-[12px] font-['Inter:Regular'] text-[#22201f] text-[14px] outline-none placeholder:text-[#85837e]" />}
       <div className="max-h-[360px] overflow-y-auto p-[4px]">
         {options.length === 0 ? (
           <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">No registers available for this site.</p>
@@ -300,9 +359,10 @@ function RegisterDropdown({
               </div>
             );
           })
-        ) : options.map((option) => (
+        ) : filteredOptions.map((option) => (
           <CheckboxMenuRow key={option.key} label={option.name} checked={selectedRegisters.includes(option.key)} onClick={() => onToggle(option.key)} />
         ))}
+        {searchable && filteredOptions.length === 0 && <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">No matching registers</p>}
       </div>
     </div>
   );
@@ -319,6 +379,222 @@ function TaxDropdown({ selected, onSelect, onClose }: { selected: string; onSele
           {selected === option && <img alt="Selected" className="size-[16px] shrink-0" src={imgCheck} />}
         </button>
       ))}
+    </div>
+  );
+}
+
+function OptionsDropdown({
+  options,
+  selected,
+  onSelect,
+  onClose,
+  searchable = false,
+  width = 280,
+}: {
+  options: string[];
+  selected: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+  searchable?: boolean;
+  width?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDropdownClose(ref, onClose);
+  const [query, setQuery] = useState("");
+  const filteredOptions = options.filter((option) => option.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <div ref={ref} style={{ width }} className="absolute top-[40px] left-0 z-50 max-h-[360px] overflow-y-auto rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
+      {searchable && <input aria-label="Search options" autoFocus placeholder="Search" value={query} onChange={(event) => setQuery(event.target.value)} className="mb-[4px] h-[36px] w-full rounded-[6px] border-b border-[#e3e2dd] px-[12px] font-['Inter:Regular'] text-[#22201f] text-[14px] outline-none placeholder:text-[#85837e]" />}
+      {filteredOptions.map((option) => (
+        <button key={option} type="button" onClick={() => { onSelect(option); onClose(); }} className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]">
+          <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option}</span>
+          {selected === option && <img alt="Selected" className="size-[16px] shrink-0" src={imgCheck} />}
+        </button>
+      ))}
+      {searchable && filteredOptions.length === 0 && <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">No matching options</p>}
+    </div>
+  );
+}
+
+function MultiSelectDropdown({
+  title,
+  options,
+  selected,
+  onApply,
+  onClose,
+  searchable = false,
+}: {
+  title: string;
+  options: string[];
+  selected: string[];
+  onApply: (values: string[]) => void;
+  onClose: () => void;
+  searchable?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDropdownClose(ref, onClose);
+  const [draft, setDraft] = useState(selected);
+  const [query, setQuery] = useState("");
+  const filteredOptions = options.filter((option) => option.toLowerCase().includes(query.toLowerCase()));
+  const allSelected = draft.length === 0;
+
+  function toggleOption(option: string) {
+    setDraft((current) => current.includes(option) ? current.filter((value) => value !== option) : [...current, option]);
+  }
+
+  return (
+    <div ref={ref} className="absolute left-0 top-[40px] z-50 w-[220px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
+      <div className="flex h-[40px] items-center border-b border-[#e3e2dd] px-[12px]">
+        <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Select {title.toLowerCase()}</span>
+      </div>
+      {searchable && (
+        <div className="px-[8px] pb-[4px] pt-[8px]">
+          <label className="flex h-[40px] items-center gap-[8px] rounded-[8px] border border-[#bbbab6] px-[12px]">
+            <svg aria-hidden="true" className="size-[16px] shrink-0 text-[#22201f]" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/><path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <input aria-label={`Search ${title}`} autoFocus placeholder="Search" value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] outline-none placeholder:text-[#aaaba6]" />
+          </label>
+        </div>
+      )}
+      <div className="max-h-[260px] overflow-y-auto p-[4px]">
+        <CheckboxMenuRow label="All" checked={allSelected} onClick={() => setDraft([])} />
+        {filteredOptions.filter((option) => option !== "All").map((option) => (
+          <CheckboxMenuRow key={option} label={option} checked={draft.includes(option)} onClick={() => toggleOption(option)} />
+        ))}
+        {searchable && filteredOptions.filter((option) => option !== "All").length === 0 && <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">No matching options</p>}
+      </div>
+      <div className="border-t border-[#e3e2dd] p-[8px]">
+        <button type="button" onClick={() => { onApply(draft); onClose(); }} className="h-[36px] w-full rounded-[8px] bg-[#1e72c4] font-['Inter:Semi_Bold'] text-white text-[14px] leading-[20px] hover:bg-[#1a64ae]">Apply</button>
+      </div>
+    </div>
+  );
+}
+
+function AddFilterDropdown({
+  filters,
+  filterOptions,
+  selectedValues,
+  onApply,
+  onClose,
+}: {
+  filters: string[];
+  filterOptions: Record<string, string[]>;
+  selectedValues: Record<string, string[]>;
+  onApply: (filter: string, values: string[]) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDropdownClose(ref, onClose);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [draft, setDraft] = useState<string[]>([]);
+  const options = activeFilter ? filterOptions[activeFilter] ?? [] : [];
+  const filteredOptions = options.filter((option) => option.toLowerCase().includes(query.toLowerCase()));
+  const searchableFilters = ["Product", "Category", "Reporting group", "Register"];
+  const multiSelectFilters = ["Product", "Category", "Reporting group", "Register"];
+
+  return (
+    <div ref={ref} className={`absolute left-0 top-[40px] z-50 overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-0 shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] ${activeFilter ? "w-[220px]" : "w-[180px]"}`}>
+      {activeFilter ? (
+        <>
+          <button type="button" onClick={() => { setActiveFilter(null); setQuery(""); }} className="flex h-[40px] w-full items-center gap-[8px] border-b border-[#e3e2dd] px-[8px] text-left">
+            <svg aria-hidden="true" className="size-[16px] shrink-0" viewBox="0 0 16 16" fill="none"><path d="m10 3-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Select {activeFilter.toLowerCase()}</span>
+          </button>
+          {searchableFilters.includes(activeFilter) && (
+            <div className="px-[8px] pb-[4px] pt-[8px]">
+              <label className="flex h-[40px] items-center gap-[8px] rounded-[8px] border border-[#bbbab6] px-[12px]">
+                <svg aria-hidden="true" className="size-[16px] shrink-0 text-[#22201f]" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/><path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <input aria-label={`Search ${activeFilter}`} autoFocus placeholder="Search" value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] outline-none placeholder:text-[#aaaba6]" />
+              </label>
+            </div>
+          )}
+          <div className="max-h-[280px] overflow-y-auto p-[4px]">
+            {multiSelectFilters.includes(activeFilter) ? (
+              <>
+                <CheckboxMenuRow label="All" checked={draft.length === 0} onClick={() => setDraft([])} />
+                {filteredOptions.filter((option) => option !== "All").map((option) => (
+                  <CheckboxMenuRow key={option} label={option} checked={draft.includes(option)} onClick={() => setDraft((current) => current.includes(option) ? current.filter((value) => value !== option) : [...current, option])} />
+                ))}
+                {filteredOptions.filter((option) => option !== "All").length === 0 && <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">No matching options</p>}
+              </>
+            ) : filteredOptions.map((option) => (
+              <button key={option} type="button" onClick={() => { onApply(activeFilter, [option]); onClose(); }} className="flex h-[36px] w-full items-center rounded-[6px] px-[12px] text-left transition-colors hover:bg-[#f9f8f4]">
+                <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option}</span>
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-[#e3e2dd] p-[8px]">
+            <button type="button" onClick={() => { onApply(activeFilter, draft); onClose(); }} className="h-[36px] w-full rounded-[8px] bg-[#1e72c4] font-['Inter:Semi_Bold'] text-white text-[14px] leading-[20px] hover:bg-[#1a64ae]">Apply</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="border-b border-[#e3e2dd] px-[12px] py-[8px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Add filter</p>
+          {filters.map((filter) => (
+            <button key={filter} type="button" onClick={() => { setActiveFilter(filter); setDraft(selectedValues[filter] ?? []); setQuery(""); }} className="flex h-[36px] w-full items-center rounded-[6px] px-[12px] text-left transition-colors hover:bg-[#f9f8f4]">
+              <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{filter}</span>
+              <svg aria-hidden="true" className="size-[16px] text-[#85837e]" viewBox="0 0 16 16" fill="none"><path d="m6 3 5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          ))}
+          {filters.length === 0 && <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">All filters are shown</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function DateComparisonDropdown({
+  dateId,
+  compareId,
+  onSelectDate,
+  onSelectCompare,
+  onClose,
+}: {
+  dateId: string;
+  compareId: string;
+  onSelectDate: (id: string, label: string) => void;
+  onSelectCompare: (id: string, label: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDropdownClose(ref, onClose);
+  const compareOptions = COMPARE_TO_OPTIONS[dateId] ?? COMPARE_TO_OPTIONS.today;
+
+  return (
+    <div ref={ref} className="absolute left-0 top-[40px] z-50 grid w-[min(400px,calc(100vw-32px))] grid-cols-2 overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
+      <section className="min-w-0 border-r border-[#e3e2dd]">
+      <p className="border-b border-[#e3e2dd] px-[16px] pb-[8px] pt-[12px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Date range</p>
+      <div className="max-h-[360px] overflow-y-auto p-[4px]">
+        {DATE_OPTIONS.map((option) => (
+          <button key={option.id} type="button" onClick={() => onSelectDate(option.id, option.label)} className="flex w-full items-start gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]">
+            <span className="flex flex-1 flex-col">
+              <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option.label}</span>
+              {dateId === option.id && <span className="mt-[1px] font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">{getDateRangeLabel(option.id)}</span>}
+            </span>
+            {dateId === option.id && <img alt="Selected" className="mt-[2px] size-[16px] shrink-0" src={imgCheck} />}
+          </button>
+        ))}
+      </div>
+      </section>
+      <section className="min-w-0">
+      <p className="border-b border-[#e3e2dd] px-[16px] pb-[8px] pt-[12px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Compare to</p>
+      <div className="max-h-[360px] overflow-y-auto p-[4px]">
+        {compareOptions.map((option) => (
+          <button key={option.id} type="button" onClick={() => onSelectCompare(option.id, option.label)} className="flex w-full items-start gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]">
+            <span className="flex flex-1 flex-col">
+              <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option.label}</span>
+              {compareId === option.id && <span className="mt-[1px] font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">{getDateRangeLabel(option.id, dateId)}</span>}
+            </span>
+            {compareId === option.id && <img alt="Selected" className="mt-[2px] size-[16px] shrink-0" src={imgCheck} />}
+          </button>
+        ))}
+        <button type="button" onClick={() => onSelectCompare("none", "None")} className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]">
+          <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">None</span>
+          {compareId === "none" && <img alt="Selected" className="size-[16px] shrink-0" src={imgCheck} />}
+        </button>
+      </div>
+      </section>
     </div>
   );
 }
@@ -871,7 +1147,7 @@ function TopListCard({ title, items, compareLabel, showComparison, isRefreshing 
 
 function SiteTableRow({ rank, name, today, last, diff, positive, showComparison, isRefreshing }: { rank: number; name: string; today: string; last: string; diff: string; positive: boolean; showComparison: boolean; isRefreshing?: boolean }) {
   return (
-    <div className="border-b border-[#e3e2dd] flex gap-[16px] items-center pl-[4px] pr-[12px] py-[12px] w-full">
+    <div className="h-[48px] border-b border-[#e3e2dd] flex gap-[16px] items-center pl-[4px] pr-[12px] w-full">
       <span className="font-['Inter:Regular'] text-[#62615d] text-[13px] leading-[24px] w-[20px] shrink-0 text-right">{rank}</span>
       <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] flex-1 min-w-0">{name}</span>
       {isRefreshing ? <Sk w="w-[72px]" h="h-[16px]" /> : <span className="font-['Inter:Regular'] text-black text-[14px] leading-[24px] text-right w-[120px] shrink-0">{today}</span>}
@@ -902,9 +1178,19 @@ const EXPORT_OPTIONS = [
   },
 ] as const;
 
-function ExportModal({ onClose, onExport }: { onClose: () => void; onExport: (label: string) => void }) {
-  const [selected, setSelected] = useState<(typeof EXPORT_OPTIONS)[number]["id"] | null>(null);
-  const selectedOption = EXPORT_OPTIONS.find((option) => option.id === selected);
+type ExportOption = (typeof EXPORT_OPTIONS)[number];
+
+function ExportModal({
+  onClose,
+  onExport,
+  options = EXPORT_OPTIONS,
+}: {
+  onClose: () => void;
+  onExport: (label: string) => void;
+  options?: readonly ExportOption[];
+}) {
+  const [selected, setSelected] = useState<ExportOption["id"] | null>(() => options.length === 1 ? options[0].id : null);
+  const selectedOption = options.find((option) => option.id === selected);
 
   return (
     <div
@@ -934,7 +1220,7 @@ function ExportModal({ onClose, onExport }: { onClose: () => void; onExport: (la
         </div>
 
         <div className="flex flex-col gap-[8px]" role="radiogroup" aria-label="Export format">
-          {EXPORT_OPTIONS.map((option) => {
+          {options.map((option) => {
             const isSelected = selected === option.id;
             return (
               <button
@@ -1008,16 +1294,18 @@ function SaveViewModal({
   onUpdate,
   existingFilters,
   hasExisting,
+  suggestedName,
 }: {
   onClose: () => void;
   onSave: (name: string) => void;
   onUpdate: (name: string) => void;
   existingFilters: string[];
   hasExisting: boolean;
+  suggestedName: string;
 }) {
   const [mode, setMode] = useState<"existing" | "new">(hasExisting ? "existing" : "new");
   const [selectedExisting, setSelectedExisting] = useState(existingFilters[0] ?? "");
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState(suggestedName);
 
   const canSave = mode === "existing" ? !!selectedExisting : !!newName.trim();
 
@@ -1251,13 +1539,13 @@ function WidgetCard({ children, className = "" }: { children: React.ReactNode; c
 const prototypeVersions = [
   {
     version: "Version 1",
-    updated: "28 September 2026",
+    updated: "24 September 2026",
     description: "Saved filters, and filtering pattern based on the new prod management system.",
     href: `${import.meta.env.BASE_URL}version-1`,
   },
   {
     version: "Version 2",
-    updated: "28 September 2026",
+    updated: "29 September 2026",
     description: "Saved filters as \"views\" and apply inline with filters.",
     href: `${import.meta.env.BASE_URL}version-2`,
     status: "[WIP]",
@@ -1348,16 +1636,19 @@ function VersionTwoA() {
 }
 
 function ReportsPrototype() {
-  const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>([]);
-  const [selectedRegisters, setSelectedRegisters] = useState<string[]>([]);
-  const [taxSelected, setTaxSelected] = useState("Inclusive");
+  const initialSalesStorage = loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" });
+  const initialSalesDefault = initialSalesStorage.savedFilters.find((view) => view.name === initialSalesStorage.defaultView);
+  const [activeReport, setActiveReport] = useState<"Sales overview" | "Product sales">("Sales overview");
+  const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>(initialSalesDefault?.sites ?? []);
+  const [selectedRegisters, setSelectedRegisters] = useState<string[]>(initialSalesDefault?.registers ?? []);
+  const [taxSelected, setTaxSelected] = useState(initialSalesDefault?.tax ?? "Inclusive");
   const [openFilter, setOpenFilter] = useState<string | null>(null);
-  const [dateSelected, setDateSelected] = useState<{ id: string; label: string }>({ id: "today", label: "Today" });
-  const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>({ id: "last-same-day", label: "Last Tuesday" });
+  const [dateSelected, setDateSelected] = useState<{ id: string; label: string }>(initialSalesDefault?.date ?? { id: "today", label: "Today" });
+  const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>(initialSalesDefault?.compare ?? { id: "last-same-day", label: "Last Tuesday" });
   const showComparison = compareSelected.id !== "none";
   const [showSavedViews, setShowSavedViews] = useState(false);
-  const [activeViewName, setActiveViewName] = useState<string | null>(null);
-  const [defaultView, setDefaultView] = useState<string | null>("__system__");
+  const [activeViewName, setActiveViewName] = useState<string | null>(initialSalesDefault ? "Default" : null);
+  const [defaultView, setDefaultView] = useState<string | null>(initialSalesStorage.defaultView);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -1387,15 +1678,7 @@ function ReportsPrototype() {
     return `Updated ${mins} minutes ago`;
   }
 
-  type SavedFilter = {
-    name: string;
-    sites: string[];
-    registers: string[];
-    date: { id: string; label: string };
-    compare: { id: string; label: string };
-    tax: string;
-  };
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [savedFilters, setSavedFilters] = useState<SalesOverviewView[]>(initialSalesStorage.savedFilters);
   const savedFiltersRef = useRef<HTMLDivElement>(null);
   const selectedSites = SITE_OPTIONS.slice(1).filter((site) => selectedSiteIds.includes(site.id));
   const siteLabel = selectedSites.length === 0
@@ -1404,6 +1687,18 @@ function ReportsPrototype() {
       ? `${selectedSites.length} sites`
       : selectedSites[0].name;
   const registerLabel = selectedRegisters.length > 0 ? `${selectedRegisters.length} selected` : "All";
+  const suggestedViewName = [
+    selectedSites.length === 1
+      ? selectedSites[0].name.split(" – ")[0]
+      : selectedSites.length > 1
+        ? `${selectedSites.length} sites`
+        : "",
+    dateSelected.id === "today"
+      ? ""
+      : dateSelected.id === "past-week"
+        ? "Last week"
+        : dateSelected.label,
+  ].filter(Boolean).join(" - ") || "Sales overview";
 
   const isFilteredFromDefault =
     selectedSiteIds.length > 0 ||
@@ -1421,7 +1716,11 @@ function ReportsPrototype() {
       f.tax === taxSelected
   );
 
-  function applyFilter(f: SavedFilter) {
+  useEffect(() => {
+    window.localStorage.setItem(SALES_OVERVIEW_STORAGE_KEY, JSON.stringify({ savedFilters, defaultView } satisfies SalesOverviewStorage));
+  }, [savedFilters, defaultView]);
+
+  function applyFilter(f: SalesOverviewView) {
     setSelectedSiteIds(f.sites);
     setSelectedRegisters(f.registers);
     setDateSelected(f.date);
@@ -1438,6 +1737,15 @@ function ReportsPrototype() {
     }
     applyFilter(savedDefault);
     setActiveViewName("Default");
+  }
+
+  function selectReport(report: "Sales overview" | "Product sales") {
+    setActiveReport(report);
+    if (report === "Sales overview") {
+      const savedDefault = savedFilters.find((filter) => filter.name === defaultView);
+      if (savedDefault) applyFilter(savedDefault);
+      else reset();
+    }
   }
 
   function saveCurrentFilters(name: string) {
@@ -1519,14 +1827,14 @@ function ReportsPrototype() {
 
   return (
     <div className="bg-[#f9f8f4] flex h-screen w-full">
-      <Sidebar />
+      <Sidebar activeReport={activeReport} onSelectReport={selectReport} />
 
       {/* Page area — white card fixed to viewport, only inner content scrolls */}
       <div className="flex-1 min-w-0 h-screen p-[8px] pl-0 flex flex-col">
         <div className="bg-white border border-[#e3e2dd] rounded-[16px] flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Title header — stays fixed */}
           <div className="border-b border-[#e3e2dd] flex gap-[16px] items-center px-[24px] py-[12px] w-full shrink-0">
-            <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] min-w-0 truncate">Sales overview</span>
+            <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] min-w-0 truncate">{activeReport}</span>
             <div className="flex items-center gap-[2px] flex-1 min-w-0">
               <button
                 onClick={refreshData}
@@ -1546,11 +1854,48 @@ function ReportsPrototype() {
             </button>
           </div>
 
-          {/* Scrollable content area */}
+          {activeReport === "Product sales" ? (
+            <div className="h-0 min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+              <ProductSalesPage
+                selectedSiteIds={selectedSiteIds}
+                selectedSites={selectedSites}
+                siteLabel={siteLabel}
+                selectedRegisters={selectedRegisters}
+                dateSelected={dateSelected}
+                compareSelected={compareSelected}
+                taxSelected={taxSelected}
+                isRefreshing={isRefreshing}
+                onToggleSite={toggleSite}
+                onApplyRegisters={(names) => {
+                  const sites = selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1);
+                  const keys = sites.flatMap((site) =>
+                    names.filter((name) => (REGISTERS_BY_SITE[site.id] ?? []).includes(name)).map((name) => `${site.id}:${name}`)
+                  );
+                  setSelectedRegisters(keys);
+                }}
+                onApplyLocationSnapshot={(sites, registers) => {
+                  setSelectedSiteIds(sites);
+                  setSelectedRegisters(registers);
+                }}
+                onSelectDate={(id, label) => {
+                  setDateSelected({ id, label });
+                  const options = COMPARE_TO_OPTIONS[id] ?? COMPARE_TO_OPTIONS.today;
+                  if (!options.some((option) => option.id === compareSelected.id)) {
+                    setCompareSelected(options[0]);
+                  }
+                }}
+                onSelectCompare={(id, label) => setCompareSelected({ id, label })}
+                onSelectTax={setTaxSelected}
+              />
+            </div>
+          ) : (
+          /* Scrollable content area */
           <div className="flex flex-col gap-[24px] items-start p-[24px] w-full overflow-y-auto flex-1">
             {/* Filter bar */}
             <div className="flex w-full flex-wrap items-start gap-[8px]">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
+              {savedFilters.length > 0 && (
+                <>
               <div ref={savedFiltersRef} className="relative">
                 <DefaultFilterChip
                   label="View"
@@ -1577,6 +1922,8 @@ function ReportsPrototype() {
                 )}
               </div>
               <div aria-hidden="true" className="mx-[4px] h-[24px] w-px shrink-0 bg-[#e3e2dd]" />
+                </>
+              )}
               <div className="relative">
                   <DefaultFilterChip
                     label="Site"
@@ -1594,37 +1941,31 @@ function ReportsPrototype() {
               </div>
 
               <div className="relative">
-                  <DefaultFilterChip
-                    label="Date"
-                    value={dateSelected.label}
-                    onClick={() => toggleMenu("date")}
+                <button
+                  type="button"
+                  onClick={() => toggleMenu("date")}
+                  className="flex h-[32px] max-w-full items-center gap-[8px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] text-left shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+                >
+                  <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">Date</span>
+                  <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{dateSelected.label}</span>
+                  <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs</span>
+                  <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{compareSelected.label}</span>
+                </button>
+                {openFilter === "date" && (
+                  <DateComparisonDropdown
+                    dateId={dateSelected.id}
+                    compareId={compareSelected.id}
+                    onSelectDate={(id, label) => {
+                      setActiveViewName(null);
+                      chooseDate(id, label);
+                    }}
+                    onSelectCompare={(id, label) => {
+                      setActiveViewName(null);
+                      setCompareSelected({ id, label });
+                    }}
+                    onClose={() => setOpenFilter(null)}
                   />
-                  {openFilter === "date" && (
-                    <DateDropdown
-                      selected={dateSelected.id}
-                      onSelect={chooseDate}
-                      onClose={() => setOpenFilter(null)}
-                    />
-                  )}
-              </div>
-
-              <div className="relative">
-                  <DefaultFilterChip
-                    label="Compare to"
-                    value={compareSelected.label}
-                    onClick={() => toggleMenu("compare")}
-                  />
-                  {openFilter === "compare" && (
-                    <CompareToDropdown
-                      dateId={dateSelected.id}
-                      selected={compareSelected.id}
-                      onSelect={(id, label) => {
-                        setActiveViewName(null);
-                        setCompareSelected({ id, label });
-                      }}
-                      onClose={() => setOpenFilter(null)}
-                    />
-                  )}
+                )}
               </div>
 
               {selectedSites.length > 0 && (
@@ -1804,6 +2145,7 @@ function ReportsPrototype() {
             </div>
             </WidgetCard>
           </div>
+          )}
         </div>
       </div>
 
@@ -1815,11 +2157,13 @@ function ReportsPrototype() {
           onUpdate={updateFilter}
           existingFilters={savedFilters.map((f) => f.name)}
           hasExisting={savedFilters.length > 0}
+          suggestedName={suggestedViewName}
         />
       )}
 
       {showExportModal && (
         <ExportModal
+          options={[EXPORT_OPTIONS[1]]}
           onClose={() => setShowExportModal(false)}
           onExport={(format) => {
             setShowExportModal(false);
@@ -1830,6 +2174,463 @@ function ReportsPrototype() {
 
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
 
+    </div>
+  );
+}
+
+const PRODUCT_SALES_ROWS = [
+  { name: "Salmon Fillet", quantity: "10", sales: "$300.00", tax: "$27.30", cost: "$0.00", quantityShare: "12%", salesShare: "37%", profitShare: "0%" },
+  { name: "Well Done", quantity: "10", sales: "$0.00", tax: "$0.00", cost: "$0.00", quantityShare: "12%", salesShare: "0%", profitShare: "0%" },
+  { name: "Salt & Pepper Squid", quantity: "6", sales: "$72.00", tax: "$6.54", cost: "$0.00", quantityShare: "7%", salesShare: "9%", profitShare: "0%" },
+  { name: "Mushrooms", quantity: "4", sales: "$4.00", tax: "$0.36", cost: "$0.00", quantityShare: "5%", salesShare: "0%", profitShare: "0%" },
+  { name: "Bacon", quantity: "3", sales: "$6.00", tax: "$0.54", cost: "$0.00", quantityShare: "4%", salesShare: "1%", profitShare: "0%" },
+  { name: "Hashbrown", quantity: "3", sales: "$6.00", tax: "$0.54", cost: "$0.00", quantityShare: "4%", salesShare: "1%", profitShare: "0%" },
+  { name: "Chef special pizza", quantity: "3", sales: "$75.00", tax: "$6.81", cost: "$0.00", quantityShare: "4%", salesShare: "9%", profitShare: "0%" },
+  { name: "Onions", quantity: "2", sales: "$1.00", tax: "$0.09", cost: "$0.00", quantityShare: "2%", salesShare: "0%", profitShare: "0%" },
+  { name: "No Pineapple", quantity: "2", sales: "$0.00", tax: "$0.00", cost: "$0.00", quantityShare: "2%", salesShare: "0%", profitShare: "0%" },
+  { name: "Quinoa and Farro Salad", quantity: "1", sales: "$7.00", tax: "$0.64", cost: "$0.00", quantityShare: "1%", salesShare: "1%", profitShare: "0%" },
+  { name: "Extra Eggs", quantity: "1", sales: "$0.50", tax: "$0.05", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Mushroom Sauce", quantity: "1", sales: "$0.00", tax: "$0.00", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Long Black", quantity: "1", sales: "$3.00", tax: "$0.27", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Margherita Pizza - 12in", quantity: "1", sales: "$20.00", tax: "$1.82", cost: "$0.00", quantityShare: "1%", salesShare: "2%", profitShare: "0%" },
+  { name: "Scrambled", quantity: "1", sales: "$0.00", tax: "$0.00", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Extra Cheese", quantity: "1", sales: "$0.50", tax: "$0.05", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Eggs Bene - Bacon", quantity: "1", sales: "$18.00", tax: "$1.64", cost: "$0.00", quantityShare: "1%", salesShare: "2%", profitShare: "0%" },
+  { name: "Pork Sausage", quantity: "1", sales: "$0.00", tax: "$0.00", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Add Fries", quantity: "1", sales: "$4.00", tax: "$0.00", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Add Drink", quantity: "1", sales: "$3.00", tax: "$0.00", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Matcha Latte - Regular", quantity: "1", sales: "$3.75", tax: "$0.34", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Smoked Salmon", quantity: "1", sales: "$3.00", tax: "$0.27", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+  { name: "Edamame", quantity: "1", sales: "$3.00", tax: "$0.27", cost: "$0.00", quantityShare: "1%", salesShare: "0%", profitShare: "0%" },
+];
+
+function ProductSalesPage({
+  selectedSiteIds,
+  selectedSites,
+  siteLabel,
+  selectedRegisters,
+  dateSelected,
+  compareSelected,
+  taxSelected,
+  isRefreshing,
+  onToggleSite,
+  onApplyRegisters,
+  onApplyLocationSnapshot,
+  onSelectDate,
+  onSelectCompare,
+  onSelectTax,
+}: {
+  selectedSiteIds: string[];
+  selectedSites: SiteOption[];
+  siteLabel: string;
+  selectedRegisters: string[];
+  dateSelected: { id: string; label: string };
+  compareSelected: { id: string; label: string };
+  taxSelected: string;
+  isRefreshing: boolean;
+  onToggleSite: (id: string) => void;
+  onApplyRegisters: (names: string[]) => void;
+  onApplyLocationSnapshot: (sites: string[], registers: string[]) => void;
+  onSelectDate: (id: string, label: string) => void;
+  onSelectCompare: (id: string, label: string) => void;
+  onSelectTax: (value: string) => void;
+}) {
+  const initialProductStorage = loadStoredValue<ProductSalesStorage>(PRODUCT_SALES_STORAGE_KEY, { savedViews: [], defaultView: "__system__" });
+  const initialProductDefault = initialProductStorage.savedViews.find((view) => view.name === initialProductStorage.defaultView);
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const [salesBy, setSalesBy] = useState(initialProductDefault?.salesBy ?? "Product");
+  const [product, setProduct] = useState<string[]>(initialProductDefault?.products ?? []);
+  const [category, setCategory] = useState<string[]>(initialProductDefault?.categories ?? []);
+  const [reportingGroup, setReportingGroup] = useState<string[]>(initialProductDefault?.reportingGroups ?? []);
+  const [visibleFilters, setVisibleFilters] = useState<string[]>(initialProductDefault?.visibleFilters ?? []);
+  const [showSavedViews, setShowSavedViews] = useState(false);
+  const [savedViews, setSavedViews] = useState<ProductSalesView[]>(initialProductStorage.savedViews);
+  const [activeViewName, setActiveViewName] = useState<string | null>(initialProductDefault ? "Default" : null);
+  const [defaultView, setDefaultView] = useState<string | null>(initialProductStorage.defaultView);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  type SortKey = keyof (typeof PRODUCT_SALES_ROWS)[number];
+  const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: "name", direction: "asc" });
+
+  useEffect(() => {
+    window.localStorage.setItem(PRODUCT_SALES_STORAGE_KEY, JSON.stringify({ savedViews, defaultView } satisfies ProductSalesStorage));
+  }, [savedViews, defaultView]);
+
+  useEffect(() => {
+    if (!initialProductDefault) return;
+    onApplyLocationSnapshot(initialProductDefault.sites, initialProductDefault.registers);
+    onSelectDate(initialProductDefault.date.id, initialProductDefault.date.label);
+    onSelectCompare(initialProductDefault.compare.id, initialProductDefault.compare.label);
+    onSelectTax(initialProductDefault.tax);
+  }, []);
+  const metrics = [
+    { label: "Top selling product", value: "Latte", change: "+9.7%", changeClass: "text-[#008e13]" },
+    { label: "Bottom selling product", value: "$4,182.60", change: "+9.7%", changeClass: "text-[#008e13]" },
+    { label: "Something", value: "241", change: "−4.6%", changeClass: "text-[#8e1311]" },
+    { label: "Something", value: "$17.35", change: "+13.2%", changeClass: "text-[#008e13]" },
+  ];
+  const columns: Array<{ key: SortKey; label: string; className: string }> = [
+    { key: "name", label: "Product Name", className: "w-[20%]" },
+    { key: "quantity", label: "Product Quantity", className: "w-[12%]" },
+    { key: "sales", label: "$ Sales", className: "w-[10%] text-right" },
+    { key: "tax", label: "Total Tax", className: "w-[10%] text-right" },
+    { key: "cost", label: "Cost", className: "w-[9%] text-right" },
+    { key: "quantityShare", label: "% of Quantity", className: "w-[12%]" },
+    { key: "salesShare", label: "% of Sale Amount", className: "w-[17%]" },
+    { key: "profitShare", label: "Gross Profit %", className: "w-[10%]" },
+  ];
+  const sortedRows = [...PRODUCT_SALES_ROWS].sort((a, b) => {
+    const left = a[sort.key];
+    const right = b[sort.key];
+    const comparison = sort.key === "name"
+      ? String(left).localeCompare(String(right))
+      : Number(String(left).replace(/[^\d.-]/g, "")) - Number(String(right).replace(/[^\d.-]/g, ""));
+    return sort.direction === "asc" ? comparison : -comparison;
+  });
+
+  function toggleFilter(id: string) {
+    setOpenFilter((current) => current === id ? null : id);
+  }
+
+  const optionalFilters = ["Product", "Category", "Reporting group", "Register", "Tax"];
+  const availableFilters = optionalFilters.filter((filter) => !visibleFilters.includes(filter));
+  const isFilteredFromDefault =
+    selectedSiteIds.length > 0 ||
+    selectedRegisters.length > 0 ||
+    dateSelected.id !== "today" ||
+    compareSelected.id !== "last-same-day" ||
+    salesBy !== "Product" ||
+    product.length > 0 ||
+    category.length > 0 ||
+    reportingGroup.length > 0 ||
+    taxSelected !== "Inclusive" ||
+    visibleFilters.length > 0;
+  const isSaved = savedViews.some((view) =>
+    view.salesBy === salesBy &&
+    JSON.stringify(view.sites) === JSON.stringify(selectedSiteIds) &&
+    JSON.stringify(view.registers) === JSON.stringify(selectedRegisters) &&
+    view.date.id === dateSelected.id &&
+    view.compare.id === compareSelected.id &&
+    JSON.stringify(view.products) === JSON.stringify(product) &&
+    JSON.stringify(view.categories) === JSON.stringify(category) &&
+    JSON.stringify(view.reportingGroups) === JSON.stringify(reportingGroup) &&
+    view.tax === taxSelected &&
+    JSON.stringify(view.visibleFilters) === JSON.stringify(visibleFilters)
+  );
+
+  function resetProductSalesFilters() {
+    setSalesBy("Product");
+    setProduct([]);
+    setCategory([]);
+    setReportingGroup([]);
+    setVisibleFilters([]);
+    setOpenFilter(null);
+    setActiveViewName(null);
+    onToggleSite("all");
+    onApplyRegisters([]);
+    onSelectDate("today", "Today");
+    onSelectCompare("last-same-day", "Last Tuesday");
+    onSelectTax("Inclusive");
+  }
+
+  function applyView(view: ProductSalesView) {
+    setSalesBy(view.salesBy);
+    setProduct(view.products);
+    setCategory(view.categories);
+    setReportingGroup(view.reportingGroups);
+    setVisibleFilters(view.visibleFilters);
+    setActiveViewName(view.name);
+    onApplyLocationSnapshot(view.sites, view.registers);
+    onSelectDate(view.date.id, view.date.label);
+    onSelectCompare(view.compare.id, view.compare.label);
+    onSelectTax(view.tax);
+  }
+
+  function applyDefaultView() {
+    const view = savedViews.find((savedView) => savedView.name === defaultView);
+    if (!view) {
+      resetProductSalesFilters();
+      setActiveViewName("Default");
+      return;
+    }
+    applyView(view);
+    setActiveViewName("Default");
+  }
+
+  function applySavedView(name: string) {
+    const view = savedViews.find((savedView) => savedView.name === name);
+    if (view) applyView(view);
+  }
+
+  function captureView(name: string): ProductSalesView {
+    return {
+      name,
+      salesBy,
+      sites: selectedSiteIds,
+      registers: selectedRegisters,
+      date: dateSelected,
+      compare: compareSelected,
+      products: product,
+      categories: category,
+      reportingGroups: reportingGroup,
+      tax: taxSelected,
+      visibleFilters,
+    };
+  }
+
+  function saveView(name: string) {
+    const view = captureView(name);
+    setSavedViews((current) => [...current, view]);
+    setActiveViewName(name);
+  }
+
+  function updateSavedView(name: string) {
+    const updatedView = captureView(name);
+    setSavedViews((current) => current.map((view) => view.name === name ? updatedView : view));
+    setActiveViewName(name);
+  }
+
+  function deleteSavedView(name: string) {
+    setSavedViews((current) => current.filter((view) => view.name !== name));
+    if (defaultView === name) setDefaultView("__system__");
+    if (activeViewName === name) setActiveViewName(null);
+  }
+
+  function showFilter(filter: string) {
+    setVisibleFilters((current) => [...current, filter]);
+    setActiveViewName(null);
+  }
+
+  function hideFilter(filter: string) {
+    setVisibleFilters((current) => current.filter((item) => item !== filter));
+    setActiveViewName(null);
+    setOpenFilter(null);
+  }
+
+  function selectedFilterLabel(values: string[], pluralLabel: string) {
+    if (values.length === 0) return "All";
+    return values.length === 1 ? values[0] : `${values.length} ${pluralLabel}`;
+  }
+
+  function renderOptionalFilter(filter: string) {
+    const value = filter === "Product" ? selectedFilterLabel(product, "products")
+      : filter === "Category" ? selectedFilterLabel(category, "categories")
+        : filter === "Reporting group" ? selectedFilterLabel(reportingGroup, "reporting groups")
+          : filter === "Register" ? selectedFilterLabel([...new Set(selectedRegisters.map((register) => register.split(":").slice(1).join(":")))], "registers")
+            : taxSelected;
+    const filterId = filter.toLowerCase().replace(/ /g, "-");
+
+    return (
+      <div key={filter} className="relative flex items-center">
+        <DefaultFilterChip label={filter} value={value} chipClassName="pr-[36px]" onClick={() => toggleFilter(filterId)} />
+        <button type="button" aria-label={`Remove ${filter} filter`} onClick={() => hideFilter(filter)} className="absolute right-[8px] flex size-[20px] shrink-0 items-center justify-center rounded-full text-[#85837e] hover:bg-[#f2f0ea] hover:text-[#22201f]">
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="m3 3 6 6m0-6L3 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+        </button>
+        {openFilter === filterId && (filter === "Product" ? (
+          <MultiSelectDropdown title="Product" options={PRODUCT_SALES_ROWS.map((row) => row.name)} selected={product} onApply={(values) => { setProduct(values); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} searchable />
+        ) : filter === "Category" ? (
+          <MultiSelectDropdown title="Category" options={["Coffee", "Food", "Bakery", "Drinks"]} selected={category} onApply={(values) => { setCategory(values); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} searchable />
+        ) : filter === "Reporting group" ? (
+          <MultiSelectDropdown title="Reporting group" options={["Beverages", "Brunch", "Bakery"]} selected={reportingGroup} onApply={(values) => { setReportingGroup(values); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} searchable />
+        ) : filter === "Register" ? (
+          <MultiSelectDropdown title="Register" options={[...new Set(Object.values(REGISTERS_BY_SITE).flat())]} selected={[...new Set(selectedRegisters.map((register) => register.split(":").slice(1).join(":")))]} onApply={(values) => { onApplyRegisters(values); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} searchable />
+        ) : (
+          <TaxDropdown selected={taxSelected} onSelect={(value) => { onSelectTax(value); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full min-w-0 flex-col gap-[24px] p-[24px]">
+      <div className="flex w-full flex-wrap items-start gap-[8px]">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
+          {savedViews.length > 0 && <>
+            <div className="relative">
+              <DefaultFilterChip label="View" value={activeViewName ?? "Default"} valueClassName={activeViewName ? "max-w-[120px]" : ""} onClick={() => setShowSavedViews((visible) => !visible)} />
+              {showSavedViews && <SavedFiltersMenu
+                savedFilters={savedViews}
+                defaultView={defaultView}
+                onClose={() => setShowSavedViews(false)}
+                onApplyDefault={applyDefaultView}
+                onApplyFilter={applySavedView}
+                onSetDefault={setDefaultView}
+                onDeleteFilter={deleteSavedView}
+              />}
+            </div>
+            <div aria-hidden="true" className="mx-[4px] h-[24px] w-px shrink-0 bg-[#e3e2dd]" />
+          </>}
+          <div className="relative">
+            <DefaultFilterChip label="Sales by" value={salesBy} onClick={() => toggleFilter("sales-by")} />
+            {openFilter === "sales-by" && <OptionsDropdown options={["Product", "Category", "Reporting group", "User"]} selected={salesBy} onSelect={(value) => { setSalesBy(value); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} width={180} />}
+          </div>
+          <div className="relative">
+            <DefaultFilterChip label="Site" value={siteLabel} valueClassName={selectedSites.length === 1 ? "max-w-[145px]" : ""} onClick={() => toggleFilter("site")} />
+            {openFilter === "site" && <SiteDropdown selectedIds={selectedSiteIds} onToggle={(id) => { setActiveViewName(null); onToggleSite(id); }} onClose={() => setOpenFilter(null)} />}
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleFilter("date")}
+              className="flex h-[32px] max-w-full items-center gap-[8px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] text-left shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+            >
+              <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">Date</span>
+              <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{dateSelected.label}</span>
+              <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs</span>
+              <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{compareSelected.label}</span>
+            </button>
+            {openFilter === "date" && <DateComparisonDropdown dateId={dateSelected.id} compareId={compareSelected.id} onSelectDate={(id, label) => { setActiveViewName(null); onSelectDate(id, label); }} onSelectCompare={(id, label) => { setActiveViewName(null); onSelectCompare(id, label); }} onClose={() => setOpenFilter(null)} />}
+          </div>
+          {visibleFilters.map(renderOptionalFilter)}
+          <div className="relative">
+            <button type="button" aria-label="Add filter" title="Add filter" onClick={() => toggleFilter("add-filter")} className="flex size-[32px] shrink-0 items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+            </button>
+            {openFilter === "add-filter" && <AddFilterDropdown
+              filters={availableFilters}
+              filterOptions={{
+                Product: ["All", ...PRODUCT_SALES_ROWS.map((row) => row.name)],
+                Category: ["All", "Coffee", "Food", "Bakery", "Drinks"],
+                "Reporting group": ["All", "Beverages", "Brunch", "Bakery"],
+                Register: ["POS A", "Front POS", "Back POS"],
+                Tax: ["Inclusive", "Exclusive"],
+              }}
+              selectedValues={{
+                Product: product,
+                Category: category,
+                "Reporting group": reportingGroup,
+                Register: [...new Set(selectedRegisters.map((register) => register.split(":").slice(1).join(":")))],
+              }}
+              onApply={(filter, values) => {
+                setActiveViewName(null);
+                if (filter === "Product") setProduct(values);
+                if (filter === "Category") setCategory(values);
+                if (filter === "Reporting group") setReportingGroup(values);
+                if (filter === "Register") onApplyRegisters(values);
+                if (filter === "Tax") onSelectTax(values[0] ?? "Inclusive");
+                setVisibleFilters((current) => current.includes(filter) ? current : [...current, filter]);
+              }}
+              onClose={() => setOpenFilter(null)}
+            />}
+          </div>
+        </div>
+
+        <div className="ml-auto flex shrink-0 items-center gap-[8px]">
+          {isFilteredFromDefault && <>
+            <button
+              type="button"
+              onClick={resetProductSalesFilters}
+              className="flex h-[32px] items-center justify-center px-[4px] transition-opacity hover:opacity-70"
+            >
+              <span className="whitespace-nowrap font-['Inter:Semi_Bold'] text-[#22201f] text-[14px] leading-[20px]">Reset</span>
+            </button>
+            {!isSaved && <button
+              type="button"
+              onClick={() => setShowSaveModal(true)}
+              className="flex h-[32px] items-center justify-center rounded-[8px] bg-[#1e72c4] px-[12px] text-white transition-colors hover:bg-[#1a64ae]"
+            >
+              <span className="whitespace-nowrap font-['Inter:Semi_Bold'] text-[14px] leading-[20px]">Save view</span>
+            </button>}
+          </>}
+          <button
+            type="button"
+            aria-label="Export"
+            title="Export"
+            onClick={() => setShowExportModal(true)}
+            className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none">
+              <path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="grid w-full grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="flex min-h-[92px] min-w-0 flex-col gap-[8px] rounded-[8px] border border-[#e3e2dd] p-[12px] sm:p-[16px]">
+            <div className="flex items-center gap-[16px]">
+              <span className="flex-1 font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{metric.label}</span>
+              <InfoIcon tooltip={metric.label} />
+            </div>
+            {isRefreshing ? <Sk w="w-[112px]" h="h-[28px]" /> : <span className="truncate font-['Inter:Semibold'] text-[#22201f] text-[20px] leading-[28px]">{metric.value}</span>}
+            {metric.change && (metric.label !== "Top selling product" || compareSelected.id !== "none") && (isRefreshing ? <Sk w="w-[156px]" /> : (
+              <p className="text-[0px] leading-[0]">
+                <span className={`font-['Inter:Semibold'] text-[12px] leading-[20px] ${metric.changeClass}`}>{metric.change} </span>
+                <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[20px]">vs {metric.label === "Top selling product" ? compareSelected.label : "last Tuesday"}</span>
+              </p>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div className="w-full min-w-0 overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white">
+          <table className="w-full table-fixed border-collapse text-left">
+            <thead className="bg-[#f9f8f4] font-['Inter:Medium'] text-[#22201f] text-[12px] leading-[16px]">
+              <tr className="h-[40px] border-b border-[#e3e2dd]">
+                {columns.map((column) => (
+                  <th key={column.key} className={`${column.className} ${column.key === "name" ? "pl-[16px] pr-[8px]" : "px-[8px]"} py-[6px] font-medium`}>
+                    <button
+                      type="button"
+                      aria-label={`Sort by ${column.label}${sort.key === column.key ? `, ${sort.direction === "asc" ? "ascending" : "descending"}` : ""}`}
+                      onClick={() => setSort((current) => ({
+                        key: column.key,
+                        direction: current.key === column.key && current.direction === "asc" ? "desc" : "asc",
+                      }))}
+                      className={`inline-flex min-w-0 items-center gap-[4px] whitespace-normal ${column.className.includes("text-right") ? "w-full justify-end text-right" : "text-left"}`}
+                    >
+                      <span className="min-w-0">{column.label}</span>
+                      <svg
+                        aria-hidden="true"
+                        className={`size-[14px] shrink-0 transition-transform ${sort.key === column.key ? "text-[#22201f]" : "text-[#85837e]"} ${sort.key === column.key && sort.direction === "desc" ? "rotate-180" : ""}`}
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path d="M8 13V3m0 0L3.75 7.25M8 3l4.25 4.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="font-['Inter:Regular'] text-[#22201f] text-[12px] leading-[16px]">
+              {sortedRows.map((product) => (
+                <tr key={product.name} className="h-[48px] border-b border-[#e3e2dd] last:border-b-0">
+                  <td className="break-all py-[6px] pl-[16px] pr-[8px]">{isRefreshing ? <Sk w="w-full" /> : <span className="text-[14px] leading-[20px]">{product.name}</span>}</td>
+                  <td className="break-all px-[4px] py-[6px]">{isRefreshing ? <Sk w="w-full" /> : product.quantity}</td>
+                  <td className="break-all px-[4px] py-[6px] text-right">{isRefreshing ? <Sk w="w-full" /> : product.sales}</td>
+                  <td className="break-all px-[4px] py-[6px] text-right">{isRefreshing ? <Sk w="w-full" /> : product.tax}</td>
+                  <td className="break-all px-[4px] py-[6px] text-right">{isRefreshing ? <Sk w="w-full" /> : product.cost}</td>
+                  <td className="break-all px-[4px] py-[6px]">{isRefreshing ? <Sk w="w-full" /> : product.quantityShare}</td>
+                  <td className="break-all px-[4px] py-[6px]">{isRefreshing ? <Sk w="w-full" /> : product.salesShare}</td>
+                  <td className="break-all px-[4px] py-[6px]">{isRefreshing ? <Sk w="w-full" /> : product.profitShare}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+      </div>
+
+      {showSaveModal && <SaveViewModal
+        onClose={() => setShowSaveModal(false)}
+        onSave={saveView}
+        onUpdate={updateSavedView}
+        existingFilters={savedViews.map((view) => view.name)}
+        hasExisting={savedViews.length > 0}
+        suggestedName={[
+          selectedSites.length === 1 ? selectedSites[0].name.split(" – ")[0] : selectedSites.length > 1 ? `${selectedSites.length} sites` : "",
+          dateSelected.id === "today" ? "" : dateSelected.id === "past-week" ? "Last week" : dateSelected.label,
+        ].filter(Boolean).join(" - ") || "Product sales"}
+      />}
+      {showExportModal && <ExportModal
+        onClose={() => setShowExportModal(false)}
+        onExport={(format) => {
+          setShowExportModal(false);
+          setToast(`${format} selected`);
+        }}
+      />}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }
