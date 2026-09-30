@@ -60,7 +60,7 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
                   type="button"
                   aria-current={activeReport === report ? "page" : undefined}
                   onClick={() => onSelectReport(report)}
-                  className={`flex h-[32px] w-full items-center justify-center rounded-[8px] p-[8px] text-left transition-colors ${activeReport === report ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
+                  className={`flex h-[32px] w-full items-center justify-start rounded-[8px] p-[8px] text-left transition-colors ${activeReport === report ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
                 >
                   <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === report ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
                     {report}
@@ -72,7 +72,7 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
                       type="button"
                       aria-current={activeReport === "Transactions" ? "page" : undefined}
                       onClick={() => onSelectReport("Transactions")}
-                      className={`flex h-[32px] w-full items-center justify-center rounded-[8px] p-[8px] text-left transition-colors ${activeReport === "Transactions" ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
+                      className={`flex h-[32px] w-full items-center justify-start rounded-[8px] p-[8px] text-left transition-colors ${activeReport === "Transactions" ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
                     >
                       <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === "Transactions" ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
                         Transactions
