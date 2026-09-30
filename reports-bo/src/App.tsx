@@ -67,18 +67,16 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
                   </span>
                 </button>
                 {report === "Overview" && (
-                  <div className="flex flex-col gap-[4px] pl-[16px]">
-                    <button
-                      type="button"
-                      aria-current={activeReport === "Transactions" ? "page" : undefined}
-                      onClick={() => onSelectReport("Transactions")}
-                      className={`flex h-[32px] w-full items-center justify-start rounded-[8px] p-[8px] text-left transition-colors ${activeReport === "Transactions" ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
-                    >
-                      <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === "Transactions" ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
-                        Transactions
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    aria-current={activeReport === "Transactions" ? "page" : undefined}
+                    onClick={() => onSelectReport("Transactions")}
+                    className={`flex h-[32px] w-full items-center justify-start rounded-[8px] p-[8px] text-left transition-colors ${activeReport === "Transactions" ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
+                  >
+                    <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === "Transactions" ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
+                      Transactions
+                    </span>
+                  </button>
                 )}
               </React.Fragment>
             ))}
