@@ -34,7 +34,7 @@ const imgDivider = `${assetPathPrefix}/973a3.svg`;
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-type ReportName = "Sales overview" | "Product sales" | "Transactions";
+type ReportName = "Overview" | "Product sales" | "Transactions";
 
 function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; onSelectReport: (report: ReportName) => void }) {
   return (
@@ -54,29 +54,33 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
         <div className="flex flex-col gap-[8px] items-start w-full shrink-0">
           <NavItem icon={imgGraph} label="Reports" hasArrow />
           <div className="flex flex-col gap-[4px] items-start w-full pl-[24px]">
-            <div className="flex items-center justify-start px-[8px] w-full rounded-[8px]">
-              <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">My reports</span>
-            </div>
-            <div className="flex items-center justify-center px-[8px] py-[6px] w-full rounded-[8px]">
-              <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px] flex-1">TBD</span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-[4px] items-start w-full pl-[24px]">
-            <div className="flex items-center justify-start px-[8px] w-full rounded-[8px]">
-              <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">All reports</span>
-            </div>
-            {(["Sales overview", "Product sales", "Transactions"] as const).map((report) => (
-              <button
-                key={report}
-                type="button"
-                aria-current={activeReport === report ? "page" : undefined}
-                onClick={() => onSelectReport(report)}
-                className={`flex h-[32px] w-full items-center justify-center rounded-[8px] p-[8px] text-left transition-colors ${activeReport === report ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
-              >
-                <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === report ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
-                  {report}
-                </span>
-              </button>
+            {(["Overview", "Product sales"] as const).map((report) => (
+              <React.Fragment key={report}>
+                <button
+                  type="button"
+                  aria-current={activeReport === report ? "page" : undefined}
+                  onClick={() => onSelectReport(report)}
+                  className={`flex h-[32px] w-full items-center justify-center rounded-[8px] p-[8px] text-left transition-colors ${activeReport === report ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
+                >
+                  <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === report ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
+                    {report}
+                  </span>
+                </button>
+                {report === "Overview" && (
+                  <div className="flex flex-col gap-[4px] pl-[16px]">
+                    <button
+                      type="button"
+                      aria-current={activeReport === "Transactions" ? "page" : undefined}
+                      onClick={() => onSelectReport("Transactions")}
+                      className={`flex h-[32px] w-full items-center justify-center rounded-[8px] p-[8px] text-left transition-colors ${activeReport === "Transactions" ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
+                    >
+                      <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === "Transactions" ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
+                        Transactions
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -1738,7 +1742,7 @@ function VersionTwoA() {
 function ReportsPrototype() {
   const initialSalesStorage = loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" });
   const initialSalesDefault = initialSalesStorage.savedFilters.find((view) => view.name === initialSalesStorage.defaultView);
-  const [activeReport, setActiveReport] = useState<ReportName>("Sales overview");
+  const [activeReport, setActiveReport] = useState<ReportName>("Overview");
   const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>(initialSalesDefault?.sites ?? []);
   const [selectedRegisters, setSelectedRegisters] = useState<string[]>(initialSalesDefault?.registers ?? []);
   const [taxSelected, setTaxSelected] = useState(initialSalesDefault?.tax ?? "Inclusive");
@@ -1799,7 +1803,7 @@ function ReportsPrototype() {
       : dateSelected.id === "past-week"
         ? "Last week"
         : dateSelected.label,
-  ].filter(Boolean).join(" - ") || "Sales overview";
+  ].filter(Boolean).join(" - ") || "Overview";
 
   const isFilteredFromDefault =
     selectedSiteIds.length > 0 ||
@@ -1842,7 +1846,7 @@ function ReportsPrototype() {
 
   function selectReport(report: ReportName) {
     setActiveReport(report);
-    if (report === "Sales overview") {
+    if (report === "Overview") {
       applyDefaultView();
     }
   }
