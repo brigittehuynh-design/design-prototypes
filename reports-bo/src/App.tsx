@@ -3092,25 +3092,50 @@ function ProductSalesPage({
         </div>
       </div>
 
-      <div className="grid w-full grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="flex min-h-[92px] min-w-0 flex-col gap-[16px] rounded-[8px] border border-[#e3e2dd] p-[16px]">
-            <div className="flex items-center gap-[16px]">
-              <span className="min-w-0 flex-1 font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{metric.label}</span>
-              <InfoIcon tooltip={metric.label} />
-            </div>
-            <div className="flex w-full flex-col items-start gap-[8px]">
-              {isRefreshing ? <Sk w="w-[112px]" h="h-[32px]" /> : <span className="block w-full truncate font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{metric.value}</span>}
-              {metric.change && (!metric.label.startsWith("Top selling") || compareSelected.id !== "none") && (isRefreshing ? <Sk w="w-[156px]" h="h-[16px]" /> : (
-                <p className="w-full text-[0px] leading-[0]">
-                  <span className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[24px] ${metric.changeClass}`}>{metric.change} </span>
-                  <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {comparisonLabel}</span>
+      {salesBy === "Product" ? (
+        <div className="grid w-full grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            { heading: "Card 1", label: "Top Selling Product", value: "Chef Special Pizza", detail: "+$75.00 (+12% vs last Tue)", badge: "PNG" },
+            { heading: "Card 2", label: "Lowest Selling Product", value: "Extra Eggs", detail: "+10.7% vs last Tue", badge: "PNG" },
+            { heading: "Card 3", label: "Top Profit Contributor", value: "Cold Brew Coffee", detail: "$112.00 Gross Profit (82% margin)" },
+            { heading: "Card 4", label: "Catalog Sales Breadth", value: "18 of 45 Products Sold", detail: "40% Active Catalog" },
+          ].map((card) => (
+            <article key={card.heading} className="min-h-[350px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-[#f8f9fc]">
+              <div className="flex h-[80px] items-center bg-[#e8edf6] px-[24px]">
+                <h3 className="font-['Inter:Regular'] text-[#22201f] text-[34px] leading-[42px]">{card.heading}</h3>
+              </div>
+              <div className="flex flex-col gap-[38px] px-[24px] py-[18px]">
+                <h4 className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{card.label}</h4>
+                <p className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{card.value}</p>
+                <p className="flex flex-wrap items-center gap-[8px] font-['Inter:Regular'] text-[#22201f] text-[20px] leading-[28px]">
+                  {card.detail}
+                  {card.badge && <span className="rounded-full bg-[#efeff1] px-[12px] py-[4px] font-['Inter:Regular'] text-[#777671] text-[18px] leading-[24px]">{card.badge}</span>}
                 </p>
-              ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="grid w-full grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => (
+            <div key={metric.label} className="flex min-h-[92px] min-w-0 flex-col gap-[16px] rounded-[8px] border border-[#e3e2dd] p-[16px]">
+              <div className="flex items-center gap-[16px]">
+                <span className="min-w-0 flex-1 font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{metric.label}</span>
+                <InfoIcon tooltip={metric.label} />
+              </div>
+              <div className="flex w-full flex-col items-start gap-[8px]">
+                {isRefreshing ? <Sk w="w-[112px]" h="h-[32px]" /> : <span className="block w-full truncate font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{metric.value}</span>}
+                {metric.change && (!metric.label.startsWith("Top selling") || compareSelected.id !== "none") && (isRefreshing ? <Sk w="w-[156px]" h="h-[16px]" /> : (
+                  <p className="w-full text-[0px] leading-[0]">
+                    <span className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[24px] ${metric.changeClass}`}>{metric.change} </span>
+                    <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {comparisonLabel}</span>
+                  </p>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="w-full min-w-0 overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white">
           <table className="w-full table-fixed border-collapse text-left">
