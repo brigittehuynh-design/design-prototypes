@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import ActionButton from "./components/ActionButton";
 
 const assetPathPrefix = `${import.meta.env.BASE_URL}assets`;
 
@@ -45,10 +46,10 @@ function Sidebar() {
   return (
     <div className="flex flex-col gap-[12px] h-screen items-start p-[8px] shrink-0 w-[200px] bg-[#f9f8f4] sticky top-0">
       {/* Back Office header */}
-      <div className="flex gap-[4px] items-center p-[8px] rounded-[8px] w-full">
+      <a href={import.meta.env.BASE_URL} className="flex gap-[4px] items-center p-[8px] rounded-[8px] w-full hover:bg-[#f2f0ea]">
         <span className="font-['Inter:Semibold'] text-[#22201f] text-[16px] leading-[24px] whitespace-nowrap">Back Office</span>
         <img alt="" className="block size-[16px]" src={imgArrowRight} />
-      </div>
+      </a>
 
       {/* Nav items */}
       <div className="flex flex-1 flex-col gap-[4px] items-start w-full min-h-0 overflow-y-auto">
@@ -694,18 +695,12 @@ function FilterDrawer({
 
         {/* Footer */}
         <div className="flex gap-[8px] items-center px-[16px] py-[16px] border-t border-[#e3e2dd] shrink-0">
-          <button
-            onClick={() => { onApply(checks); onClose(); }}
-            className="flex-1 bg-[#1e72c4] text-white font-['Inter:Semibold'] text-[14px] leading-[20px] h-[40px] rounded-[8px] hover:bg-[#1a64ae] transition-colors"
-          >
+          <ActionButton variant="primary" className="flex-1" onClick={() => { onApply(checks); onClose(); }}>
             {registersSelected > 0 ? `Apply filters` : "Apply filters"}
-          </button>
-          <button
-            onClick={() => setChecks(DEFAULT_CHECKBOXES)}
-            className="flex-1 bg-white border border-[#e3e2dd] text-[#22201f] font-['Inter:Semibold'] text-[14px] leading-[20px] h-[40px] rounded-[8px] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4] transition-colors"
-          >
+          </ActionButton>
+          <ActionButton variant="secondary" className="flex-1" onClick={() => setChecks(DEFAULT_CHECKBOXES)}>
             Clear filters
-          </button>
+          </ActionButton>
         </div>
       </div>
     </>
@@ -1074,14 +1069,15 @@ function ExportModal({ onClose, onExport }: { onClose: () => void; onExport: (la
         </div>
 
         <div className="w-full">
-          <button
+          <ActionButton
+            variant="primary"
+            className="w-full"
             type="button"
             disabled={!selectedOption}
             onClick={() => selectedOption && onExport(selectedOption.label)}
-            className="bg-[#1e72c4] text-white font-['Inter:Semibold'] text-[14px] leading-[20px] h-[40px] w-full rounded-[8px] hover:bg-[#1a64ae] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Export
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>
@@ -1287,13 +1283,14 @@ function SaveViewModal({
         )}
 
         {/* Save button */}
-        <button
+        <ActionButton
+          variant="primary"
+          className="w-full"
           onClick={handleSave}
           disabled={!canSave}
-          className="bg-[#1e72c4] text-white font-['Inter:Semi Bold'] font-semibold text-[14px] leading-[20px] tracking-[0.014px] rounded-[8px] h-[40px] w-full shadow-[0px_1px_0px_0px_rgba(0,0,0,0.1)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-[#1660a8]"
         >
           Save
-        </button>
+        </ActionButton>
       </div>
     </div>
   );
@@ -1408,7 +1405,7 @@ const prototypeVersions = [
   },
   {
     version: "Version 2",
-    updated: "29 September 2026",
+    updated: "30 September 2026",
     description: "Saved filters, and filtering pattern based on the new prod management system.",
     href: `${import.meta.env.BASE_URL}version-2`,
   },
@@ -1456,15 +1453,17 @@ function PrototypeHome() {
                     {prototype.description}
                   </p>
                 </div>
-                <a
+                <ActionButton
+                  as="a"
                   href={prototype.href}
-                  className="inline-flex h-[40px] shrink-0 items-center justify-center gap-[8px] rounded-[8px] bg-[#1e72c4] px-[16px] font-['Inter:Semibold'] text-white text-[14px] leading-[20px] transition-colors hover:bg-[#1a64ae] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1e72c4]"
+                  variant="primary"
+                  className="shrink-0"
                 >
                   View prototype
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M3 8h10M8 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                </a>
+                </ActionButton>
               </article>
             ))}
           </div>
@@ -1707,9 +1706,7 @@ function ReportsPrototype() {
             </div>
             <img alt="" className="block shrink-0 size-[24px] cursor-pointer" src={imgChat} />
             <img alt="" className="block shrink-0 size-[24px] cursor-pointer" src={imgAnnouncement} />
-            <button className="bg-white border border-[#e3e2dd] flex h-[32px] items-center justify-center overflow-hidden px-[12px] py-[4px] rounded-[8px] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)]">
-              <span className="font-['Inter:Semi_Bold'] text-[#22201f] text-[14px] leading-[20px] tracking-[0.014px] whitespace-nowrap">POS</span>
-            </button>
+            <ActionButton variant="secondary" size="slim">POS</ActionButton>
           </div>
 
           {/* Scrollable content area */}
@@ -1795,19 +1792,9 @@ function ReportsPrototype() {
               <div className="flex items-start gap-[8px] shrink-0">
                 {isFilteredFromDefault && (
                   <>
-                    <button
-                      onClick={reset}
-                      className="flex h-[32px] items-center justify-center px-[4px] hover:opacity-70 transition-opacity"
-                    >
-                      <span className="font-['Inter:Semi Bold'] font-semibold text-[#22201f] text-[14px] leading-[20px] tracking-[0.014px] whitespace-nowrap">Reset</span>
-                    </button>
+                    <ActionButton variant="text" size="slim" onClick={reset}>Reset</ActionButton>
                     {!isSaved && (
-                      <button
-                        onClick={() => setShowSaveModal(true)}
-                        className="bg-white border border-[#e3e2dd] flex h-[32px] items-center justify-center px-[12px] py-[4px] rounded-[8px] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4] transition-colors"
-                      >
-                        <span className="font-['Inter:Semi Bold'] font-semibold text-[#22201f] text-[14px] leading-[20px] tracking-[0.014px] whitespace-nowrap">Save</span>
-                      </button>
+                      <ActionButton variant="secondary" size="slim" onClick={() => setShowSaveModal(true)}>Save</ActionButton>
                     )}
                   </>
                 )}
