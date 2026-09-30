@@ -2081,19 +2081,6 @@ function ReportsPrototype() {
                 </div>
               )}
 
-              <div className="relative">
-                <DefaultFilterChip label="Tax" value={taxSelected} onClick={() => toggleMenu("tax")} />
-                {openFilter === "tax" && (
-                  <TaxDropdown
-                    selected={taxSelected}
-                    onSelect={(value) => {
-                      setActiveViewName(null);
-                      setTaxSelected(value);
-                    }}
-                    onClose={() => setOpenFilter(null)}
-                  />
-                )}
-              </div>
               </div>
 
               {/* Right actions */}
@@ -2106,19 +2093,6 @@ function ReportsPrototype() {
                     )}
                   </>
                 )}
-                <Tooltip text="Export CSV">
-                  <button
-                    type="button"
-                    aria-label="Export CSV"
-                    onClick={() => setToast("CSV file downloaded")}
-                    className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
-                  >
-                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none">
-                    <path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  </button>
-                </Tooltip>
               </div>
             </div>
 
