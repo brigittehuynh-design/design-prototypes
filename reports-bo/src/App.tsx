@@ -2789,11 +2789,16 @@ function ProductSalesPage({
     const difference = previous === 0 ? 0 : (value - previous) / previous * 100;
     return changeFor(difference);
   };
-  const metrics = [
-    { label: `Lowest selling ${dimensionLabel.toLowerCase()}`, value: bottomRow?.name ?? "—", change: comparisonChange(Number(bottomRow?.sales.replace(/[$,]/g, "") ?? 0), "up"), changeClass: "text-[#008e13]" },
-    { label: salesBy === "Product" ? "Quantity sold" : "Products sold", value: (salesBy === "Product" ? totalQuantity : totalProducts).toLocaleString("en-AU"), change: comparisonChange(salesBy === "Product" ? totalQuantity : totalProducts, "down"), changeClass: "text-[#8e1311]" },
-    { label: "Average sale", value: formatCurrency(totalOrders ? totalSales / totalOrders : 0), change: comparisonChange(totalSales, "up"), changeClass: "text-[#008e13]" },
-    { label: "Total sales", value: formatCurrency(totalSales), change: comparisonChange(totalSales, "up"), changeClass: "text-[#008e13]" },
+  const metrics: Array<{ label: string; value: string; change: string; changeClass: string; comparison?: string }> = salesBy === "Product" ? [
+    { label: "Top Selling Product", value: "Chef Special Pizza", change: "+$75.00 +12.02%", changeClass: "text-[#008e13]", comparison: "last Tuesday" },
+    { label: "Lowest Selling Product", value: "Extra Eggs", change: "+10.7%", changeClass: "text-[#008e13]", comparison: "last Tuesday" },
+    { label: "Top Profit Contributor", value: "Cold Brew Coffee", change: "$112.00 Gross Profit (82% margin)", changeClass: "text-[#62615d]" },
+    { label: "Catalog Sales Breadth", value: "18 of 45 Products Sold", change: "40% Active Catalog", changeClass: "text-[#62615d]" },
+  ] : [
+    { label: `Lowest selling ${dimensionLabel.toLowerCase()}`, value: bottomRow?.name ?? "—", change: comparisonChange(Number(bottomRow?.sales.replace(/[$,]/g, "") ?? 0), "up"), changeClass: "text-[#008e13]", comparison: comparisonLabel },
+    { label: salesBy === "Product" ? "Quantity sold" : "Products sold", value: (salesBy === "Product" ? totalQuantity : totalProducts).toLocaleString("en-AU"), change: comparisonChange(salesBy === "Product" ? totalQuantity : totalProducts, "down"), changeClass: "text-[#8e1311]", comparison: comparisonLabel },
+    { label: "Average sale", value: formatCurrency(totalOrders ? totalSales / totalOrders : 0), change: comparisonChange(totalSales, "up"), changeClass: "text-[#008e13]", comparison: comparisonLabel },
+    { label: "Total sales", value: formatCurrency(totalSales), change: comparisonChange(totalSales, "up"), changeClass: "text-[#008e13]", comparison: comparisonLabel },
   ];
   const columns: Array<{ key: SortKey; label: string; className: string }> = salesBy === "Product"
     ? [
@@ -3101,10 +3106,10 @@ function ProductSalesPage({
             </div>
             <div className="flex w-full flex-col items-start gap-[8px]">
               {isRefreshing ? <Sk w="w-[112px]" h="h-[32px]" /> : <span className="block w-full truncate font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{metric.value}</span>}
-              {metric.change && (!metric.label.startsWith("Top selling") || compareSelected.id !== "none") && (isRefreshing ? <Sk w="w-[156px]" h="h-[16px]" /> : (
+              {metric.change && (isRefreshing ? <Sk w="w-[156px]" h="h-[16px]" /> : (
                 <p className="w-full text-[0px] leading-[0]">
                   <span className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[24px] ${metric.changeClass}`}>{metric.change} </span>
-                  <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {comparisonLabel}</span>
+                  {metric.comparison && <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {metric.comparison}</span>}
                 </p>
               ))}
             </div>
