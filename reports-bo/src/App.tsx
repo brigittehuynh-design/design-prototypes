@@ -122,14 +122,19 @@ function NavItem({ icon, label, hasArrow }: { icon: string; label: string; hasAr
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
-  const [tooltip, setTooltip] = useState<{ alignRight: boolean; maxWidth: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ alignRight: boolean; maxWidth: number; left?: number; right?: number; bottom: number } | null>(null);
 
   function showTooltip(event: React.MouseEvent<HTMLDivElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
     const leftSpace = bounds.right - 16;
     const rightSpace = window.innerWidth - bounds.left - 16;
     const alignRight = leftSpace > rightSpace;
-    setTooltip({ alignRight, maxWidth: Math.max(0, alignRight ? leftSpace : rightSpace) });
+    setTooltip({
+      alignRight,
+      maxWidth: Math.max(0, alignRight ? leftSpace : rightSpace),
+      ...(alignRight ? { right: window.innerWidth - bounds.right } : { left: bounds.left }),
+      bottom: window.innerHeight - bounds.top + 6,
+    });
   }
 
   return (
@@ -141,8 +146,8 @@ function Tooltip({ text, children }: { text: string; children: React.ReactNode }
       {children}
       {tooltip && (
         <div
-          className={`absolute bottom-full mb-[6px] z-50 pointer-events-none w-max ${tooltip.alignRight ? "right-0" : "left-0"}`}
-          style={{ maxWidth: tooltip.maxWidth }}
+          className={`fixed z-[200] pointer-events-none w-max ${tooltip.alignRight ? "text-right" : "text-left"}`}
+          style={{ maxWidth: tooltip.maxWidth, left: tooltip.left, right: tooltip.right, bottom: tooltip.bottom }}
         >
           <div className="bg-[#22201f] text-white font-['Inter:Regular'] text-[12px] leading-[16px] px-[8px] py-[6px] rounded-[6px] whitespace-normal break-words shadow-lg">
             {text}
@@ -930,6 +935,57 @@ function InfoIcon({ tooltip }: { tooltip: string }) {
   );
 }
 
+function MetricMoreMenu({ onExportPng, onViewMethodology }: { onExportPng: () => void; onViewMethodology: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDropdownClose(ref, () => setIsOpen(false));
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label="More chart options"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+        className="flex size-[32px] items-center justify-center rounded-[8px] text-[#777671] transition-colors hover:bg-[#f2f0ea]"
+      >
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <circle cx="4" cy="10" r="1.5" />
+          <circle cx="10" cy="10" r="1.5" />
+          <circle cx="16" cy="10" r="1.5" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute right-0 top-[40px] z-50 w-[190px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
+          <button
+            type="button"
+            onClick={() => { setIsOpen(false); onExportPng(); }}
+            className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
+          >
+            <svg aria-hidden="true" className="size-[16px] shrink-0 text-[#22201f]" viewBox="0 0 20 20" fill="none">
+              <rect x="2.5" y="2.5" width="15" height="15" rx="2" stroke="currentColor" strokeWidth="1.7" />
+              <circle cx="7" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+              <path d="m3.5 15 4-4 2.5 2.5 2-2 4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+            </svg>
+            <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">Export PNG</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsOpen(false); onViewMethodology(); }}
+            className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
+          >
+            <svg aria-hidden="true" className="size-[16px] shrink-0 text-[#22201f]" viewBox="0 0 20 20" fill="none">
+              <path d="M10 4.5C8.5 3.2 6.2 2.8 2.5 3.5v12c3.7-.7 6-.3 7.5 1 1.5-1.3 3.8-1.7 7.5-1v-12c-3.7-.7-6-.3-7.5 1Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+              <path d="M10 4.5v12" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+            <span className="flex-1 font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">View methodology</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Hourly Sales Chart ───────────────────────────────────────────────────────
 
 const HALF_HOURS = [
@@ -1108,11 +1164,13 @@ function Sk({ w, h = "h-[16px]" }: { w: string; h?: string }) {
 function KpiCard({ label, value, change, changeColor, compareLabel, showComparison, isRefreshing }: { label: string; value: string; change?: string; changeColor?: string; compareLabel?: string; showComparison: boolean; isRefreshing?: boolean }) {
   return (
     <WidgetCard className="flex-1 min-w-0">
-    <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
+      <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
       <div className="flex gap-[8px] items-center w-full">
-        <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1 min-w-0">{label}</span>
+        <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+          <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{label}</span>
+          <InfoIcon tooltip={`${label} for the selected period`} />
+        </div>
         <AskButton label="Ask" />
-        <InfoIcon tooltip={`${label} for the selected period`} />
       </div>
       <div className="flex flex-col gap-[8px] items-start w-full">
         {isRefreshing
@@ -1153,15 +1211,18 @@ function ProductRow({ rank, name, count, change, positive, showComparison, isRef
   );
 }
 
-function TopListCard({ title, items, compareLabel, showComparison, isRefreshing }: { title: string; compareLabel: string; showComparison: boolean; isRefreshing?: boolean; items: Array<{ rank: number; name: string; count: number; change: string; positive: boolean }> }) {
+function TopListCard({ title, items, compareLabel, showComparison, isRefreshing, onExportPng, onViewMethodology }: { title: string; compareLabel: string; showComparison: boolean; isRefreshing?: boolean; items: Array<{ rank: number; name: string; count: number; change: string; positive: boolean }>; onExportPng: () => void; onViewMethodology: () => void }) {
   const top = items[0];
   return (
     <WidgetCard className="flex-1 min-w-0 self-stretch">
     <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
       <div className="flex gap-[8px] items-center w-full shrink-0">
-        <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1 min-w-0">{title}</span>
+        <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+          <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{title}</span>
+          <InfoIcon tooltip={title} />
+        </div>
         <AskButton label="Ask" />
-        <InfoIcon tooltip={title} />
+        <MetricMoreMenu onExportPng={onExportPng} onViewMethodology={onViewMethodology} />
       </div>
       {/* Highlight — #1 item */}
       <div className="flex flex-col gap-[4px] items-start shrink-0 w-full">
@@ -1198,111 +1259,6 @@ function SiteTableRow({ rank, name, today, last, diff, positive, showComparison,
       {isRefreshing ? <Sk w="w-[72px]" h="h-[16px]" /> : <span className="font-['Inter:Regular'] text-black text-[14px] leading-[24px] text-right w-[120px] shrink-0">{today}</span>}
       {showComparison && (isRefreshing ? <Sk w="w-[72px]" h="h-[16px]" /> : <span className="font-['Inter:Regular'] text-black text-[14px] leading-[24px] text-right w-[120px] shrink-0">{last}</span>)}
       {showComparison && (isRefreshing ? <Sk w="w-[48px]" h="h-[16px]" /> : <span className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[120px] shrink-0 ${positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{diff}</span>)}
-    </div>
-  );
-}
-
-const EXPORT_OPTIONS = [
-  {
-    id: "spreadsheet",
-    label: "CSV/Excel (.xlsx)",
-    description: "Export report data for spreadsheets and further analysis.",
-    badge: "XLSX",
-  },
-  {
-    id: "pdf",
-    label: "PDF",
-    description: "Download a print-ready copy of this report.",
-    badge: "PDF",
-  },
-  {
-    id: "png",
-    label: "Image (PNG) of a chart",
-    description: "Save a chart as an image for presentations or sharing.",
-    badge: "PNG",
-  },
-] as const;
-
-type ExportOption = (typeof EXPORT_OPTIONS)[number];
-
-function ExportModal({
-  onClose,
-  onExport,
-  options = EXPORT_OPTIONS,
-}: {
-  onClose: () => void;
-  onExport: (label: string) => void;
-  options?: readonly ExportOption[];
-}) {
-  const [selected, setSelected] = useState<ExportOption["id"] | null>(() => options.length === 1 ? options[0].id : null);
-  const selectedOption = options.find((option) => option.id === selected);
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(70,74,81,0.6)] p-[16px]"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="export-modal-title"
-        className="bg-white rounded-[12px] shadow-[0px_8px_8px_0px_rgba(18,18,18,0.04),0px_4px_4px_0px_rgba(18,18,18,0.08),0px_1px_1px_0px_rgba(18,18,18,0.12)] p-[24px] flex flex-col gap-[20px] w-full max-w-[480px]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start gap-[16px]">
-          <div className="flex-1">
-            <h2 id="export-modal-title" className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[28px]">Export report</h2>
-            <p className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px] mt-[4px]">Choose a format for your report.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close export options"
-            className="shrink-0 size-[24px] flex items-center justify-center hover:opacity-70 transition-opacity"
-          >
-            <img alt="" className="block size-[16px]" src={imgModalClose} />
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-[8px]" role="radiogroup" aria-label="Export format">
-          {options.map((option) => {
-            const isSelected = selected === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => setSelected(option.id)}
-                className={`flex items-center gap-[12px] rounded-[8px] border p-[12px] text-left transition-colors ${isSelected ? "border-[#1e72c4] bg-[#f4f9ff]" : "border-[#e3e2dd] hover:bg-[#f9f8f4]"}`}
-              >
-                <span className={`size-[18px] rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-[#1e72c4]" : "border-[#bbbab6]"}`}>
-                  {isSelected && <span className="size-[10px] rounded-full bg-[#1e72c4]" />}
-                </span>
-                <span className="flex size-[36px] items-center justify-center rounded-[6px] bg-[#f2f0ea] font-['Inter:Semibold'] text-[#62615d] text-[10px] shrink-0">
-                  {option.badge}
-                </span>
-                <span className="flex flex-col gap-[2px] min-w-0">
-                  <span className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">{option.label}</span>
-                  <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">{option.description}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="w-full">
-          <ActionButton
-            type="button"
-            variant="primary"
-            className="w-full"
-            disabled={!selectedOption}
-            onClick={() => selectedOption && onExport(selectedOption.label)}
-          >
-            Export
-          </ActionButton>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1753,7 +1709,6 @@ function ReportsPrototype() {
   const [defaultView, setDefaultView] = useState<string | null>(initialSalesStorage.defaultView);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingSavedViewName, setEditingSavedViewName] = useState<string | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
   const [now, setNow] = useState<Date>(() => new Date());
@@ -1766,10 +1721,10 @@ function ReportsPrototype() {
 
   function refreshData() {
     setIsRefreshing(true);
+    setLastUpdated(new Date());
+    setNow(new Date());
     setTimeout(() => {
       setIsRefreshing(false);
-      setLastUpdated(new Date());
-      setNow(new Date());
     }, 800);
   }
 
@@ -1843,6 +1798,7 @@ function ReportsPrototype() {
   }
 
   function selectReport(report: ReportName) {
+    if (report !== activeReport) refreshData();
     setActiveReport(report);
     if (report === "Overview") {
       applyDefaultView();
@@ -2141,18 +2097,19 @@ function ReportsPrototype() {
                     )}
                   </>
                 )}
-                <button
-                  type="button"
-                  aria-label="Export"
-                  title="Export"
-                  onClick={() => setShowExportModal(true)}
-                  className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
-                >
+                <Tooltip text="Export CSV">
+                  <button
+                    type="button"
+                    aria-label="Export CSV"
+                    onClick={() => setToast("CSV file downloaded")}
+                    className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+                  >
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none">
                     <path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                </button>
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
@@ -2164,9 +2121,11 @@ function ReportsPrototype() {
               <WidgetCard className="flex-1 min-w-0 h-full">
               <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
                 <div className="flex gap-[8px] items-center w-full">
-                  <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1 min-w-0">Top selling product</span>
+                  <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+                    <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Top selling product</span>
+                    <InfoIcon tooltip="Best-selling product by order volume" />
+                  </div>
                   <AskButton label="Ask" />
-                  <InfoIcon tooltip="Best-selling product by order volume" />
                 </div>
                 {isRefreshing ? <Sk w="w-[60px]" h="h-[32px]" /> : <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">Latte</span>}
               </div>
@@ -2174,12 +2133,15 @@ function ReportsPrototype() {
             </div>
 
             {/* Hourly sales chart */}
-            <WidgetCard className="w-full">
+              <WidgetCard className="w-full">
             <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full">
               <div className="flex gap-[8px] items-center w-full">
-                <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1">Hourly sales</span>
+                <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+                  <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Hourly sales</span>
+                  <InfoIcon tooltip="Total sales revenue broken down by hour" />
+                </div>
                 <AskButton label="Ask about this" />
-                <InfoIcon tooltip="Total sales revenue broken down by hour" />
+                <MetricMoreMenu onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} />
               </div>
               <HourlySalesChart compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
             </div>
@@ -2187,21 +2149,21 @@ function ReportsPrototype() {
 
             {/* Top lists row */}
             <div className="flex gap-[16px] items-stretch w-full">
-              <TopListCard title="Top selling products" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} items={[
+              <TopListCard title="Top selling products" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} items={[
                 { rank: 1, name: "Latte", count: 82, change: "+7.4%", positive: true },
                 { rank: 2, name: "Flat White", count: 67, change: "−2.9%", positive: false },
                 { rank: 3, name: "Plain Croissant", count: 32, change: "+15.6%", positive: true },
                 { rank: 4, name: "Cappuccino", count: 31, change: "+4.8%", positive: true },
                 { rank: 5, name: "Banana Bread", count: 16, change: "−8.3%", positive: false },
               ]} />
-              <TopListCard title="Top selling categories" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} items={[
+              <TopListCard title="Top selling categories" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} items={[
                 { rank: 1, name: "Coffee", count: 187, change: "+12.1%", positive: true },
                 { rank: 2, name: "Pastries", count: 76, change: "+6.5%", positive: true },
                 { rank: 3, name: "Sweets", count: 65, change: "−5.7%", positive: false },
                 { rank: 4, name: "Toasties", count: 47, change: "+10.9%", positive: true },
                 { rank: 5, name: "Other drinks", count: 30, change: "+3.6%", positive: true },
               ]} />
-              <TopListCard title="Top selling reporting groups" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} items={[
+              <TopListCard title="Top selling reporting groups" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} items={[
                 { rank: 1, name: "Drinks", count: 384, change: "−11.4%", positive: false },
                 { rank: 2, name: "Food", count: 265, change: "+14.7%", positive: true },
                 { rank: 3, name: "Other", count: 157, change: "−6.2%", positive: false },
@@ -2209,12 +2171,14 @@ function ReportsPrototype() {
             </div>
 
             {/* Sales by site table */}
-            <WidgetCard className="w-full">
+              <WidgetCard className="w-full">
             <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full">
               <div className="flex gap-[8px] items-center w-full">
-                <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1">Sales by site</span>
+                <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+                  <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Sales by site</span>
+                  <InfoIcon tooltip="Revenue comparison by location for the selected period" />
+                </div>
                 <AskButton label="Ask about this" />
-                <InfoIcon tooltip="Revenue comparison by location for the selected period" />
               </div>
               <div className="flex flex-col items-start w-full overflow-hidden">
                 {/* Table header */}
@@ -2238,12 +2202,14 @@ function ReportsPrototype() {
             </WidgetCard>
 
             {/* Sales by staff table */}
-            <WidgetCard className="w-full">
+              <WidgetCard className="w-full">
             <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full">
               <div className="flex gap-[8px] items-center w-full">
-                <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1">Sales by staff</span>
+                <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+                  <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Sales by staff</span>
+                  <InfoIcon tooltip="Revenue broken down by staff member for the selected period" />
+                </div>
                 <AskButton label="Ask about this" />
-                <InfoIcon tooltip="Revenue broken down by staff member for the selected period" />
               </div>
               <div className="flex flex-col items-start w-full overflow-hidden">
                 <div className="bg-[#f9f8f4] border-y border-[#e3e2dd] flex gap-[16px] h-[40px] items-center font-['Inter:Medium'] text-[#22201f] text-[12px] leading-[16px] pl-[8px] pr-[12px] py-[8px] w-full">
@@ -2291,17 +2257,6 @@ function ReportsPrototype() {
             deleteFilter(editingSavedViewName);
             if (activeViewName === editingSavedViewName) setActiveViewName(null);
             setEditingSavedViewName(null);
-          }}
-        />
-      )}
-
-      {showExportModal && (
-        <ExportModal
-          options={[EXPORT_OPTIONS[1]]}
-          onClose={() => setShowExportModal(false)}
-          onExport={(format) => {
-            setShowExportModal(false);
-            setToast(`${format} selected`);
           }}
         />
       )}
@@ -2504,7 +2459,6 @@ function TransactionsPage({
   const [showSavedViews, setShowSavedViews] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingSavedViewName, setEditingSavedViewName] = useState<string | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [paymentTypes, setPaymentTypes] = useState<string[]>(initialDefault?.paymentTypes ?? []);
@@ -2663,7 +2617,7 @@ function TransactionsPage({
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-[8px]">
         {isFiltered && <><ActionButton variant="text" size="slim" onClick={resetFilters}>Reset</ActionButton>{!savedViews.some((view) => JSON.stringify({ ...view, name: "" }) === JSON.stringify(filterSnapshot())) && <ActionButton variant="primary" size="slim" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}</>}
-        <button type="button" aria-label="Export" title="Export" onClick={() => setShowExportModal(true)} className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4]"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+        <Tooltip text="Export CSV"><button type="button" aria-label="Export CSV" onClick={() => setToast("CSV file downloaded")} className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4]"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button></Tooltip>
       </div>
     </div>
     <div ref={transactionTableRef} onScroll={(event) => setIsTransactionTableScrolled(event.currentTarget.scrollLeft > 0)} className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-t-[8px] border border-[#e3e2dd] bg-white">
@@ -2676,7 +2630,6 @@ function TransactionsPage({
     </div>
     {showSaveModal && <SaveViewModal onClose={() => setShowSaveModal(false)} onSave={saveView} onUpdate={saveExistingView} existingFilters={savedViews.map((view) => view.name)} hasExisting={savedViews.length > 0} suggestedName={suggestedViewName} />}
     {editingSavedViewName && <EditSavedViewModal name={editingSavedViewName} existingNames={savedViews.map((view) => view.name)} onClose={() => setEditingSavedViewName(null)} onRename={(name) => renameView(editingSavedViewName, name)} onDelete={() => deleteView(editingSavedViewName)} />}
-    {showExportModal && <ExportModal options={[EXPORT_OPTIONS[0], EXPORT_OPTIONS[1]]} onClose={() => setShowExportModal(false)} onExport={(format) => { setShowExportModal(false); setToast(`${format} selected`); }} />}
     {toast && <Toast message={toast} onDone={() => setToast(null)} />}
   </div>;
 }
@@ -2726,7 +2679,6 @@ function ProductSalesPage({
   const [defaultView, setDefaultView] = useState<string | null>(initialProductStorage.defaultView);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingSavedViewName, setEditingSavedViewName] = useState<string | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   type SortKey = keyof ProductSalesRow;
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({ key: "name", direction: "asc" });
@@ -2767,6 +2719,19 @@ function ProductSalesPage({
   const reportRows = selectedBreakdownValues.length > 0
     ? baseRows.filter((row) => selectedBreakdownValues.includes(row.name))
     : baseRows;
+  const metricDimension = salesBy === "User" ? "staff member" : salesBy.toLowerCase();
+  const metricDimensionPlural = salesBy === "User" ? "staff members" : salesBy === "Category" ? "categories" : `${metricDimension}s`;
+  const topSellingRow = [...reportRows].sort((left, right) => Number(right.quantity) - Number(left.quantity))[0];
+  const lowestSellingRow = [...reportRows].sort((left, right) => Number(left.quantity) - Number(right.quantity))[0];
+  const topProfitRow = [...reportRows].sort((left, right) => Number(right.sales.replace(/[$,]/g, "")) - Number(left.sales.replace(/[$,]/g, "")))[0];
+  const salesBreadthCount = salesBy === "Product" ? 18 : reportRows.length;
+  const salesBreadthTotal = salesBy === "Product" ? 45 : baseRows.length;
+  const salesBreadthLabel = salesBy === "Product" ? "Menu sales breadth" : `${salesBy} sales breadth`;
+  const salesBreadthValue = salesBy === "Product" ? "18/45 items sold" : `${salesBreadthCount}/${salesBreadthTotal} ${metricDimensionPlural} represented`;
+  const salesBreadthDetail = salesBy === "Product" ? "40% of menu" : `${Math.round(salesBreadthCount / Math.max(1, salesBreadthTotal) * 100)}% of ${metricDimensionPlural}`;
+  const topProductValue = salesBy === "Product" ? "Salmon Fillet" : topSellingRow?.name ?? "—";
+  const lowestProductValue = salesBy === "Product" ? "Extra Eggs" : lowestSellingRow?.name ?? "—";
+  const topProfitValue = salesBy === "Product" ? "Cold Brew Coffee" : topProfitRow?.name ?? "—";
   const sortedRows = [...reportRows].sort((a, b) => {
     const left = a[sort.key];
     const right = b[sort.key];
@@ -3058,35 +3023,43 @@ function ProductSalesPage({
             <ActionButton variant="text" size="slim" onClick={resetProductSalesFilters}>Reset</ActionButton>
             {!isSaved && <ActionButton variant="primary" size="slim" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}
           </>}
-          <button
-            type="button"
-            aria-label="Export"
-            title="Export"
-            onClick={() => setShowExportModal(true)}
-            className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
-          >
+          <Tooltip text="Export CSV">
+            <button
+              type="button"
+              aria-label="Export CSV"
+              onClick={() => setToast("CSV file downloaded")}
+              className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+            >
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none">
               <path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </button>
+            </button>
+          </Tooltip>
         </div>
       </div>
 
       <div className="flex w-full flex-wrap items-stretch gap-[16px]">
-        <KpiCard label="Total sales" value="$4,182.60" change="+9.7%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
-        <KpiCard label="Orders" value="241" change="−4.6%" changeColor="text-[#8e1311]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
-        <KpiCard label="Average order" value="$17.35" change="+13.2%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
-        <WidgetCard className="flex-1 min-w-0">
-          <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
-            <div className="flex gap-[8px] items-center w-full">
-              <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1 min-w-0">Top selling product</span>
-              <AskButton label="Ask" />
-              <InfoIcon tooltip="Best-selling product by order volume" />
+        <KpiCard label={`Top selling ${metricDimension}`} value={topProductValue} change="+7.8%" changeColor="text-[#008e13]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} />
+        <KpiCard label={`Lowest selling ${metricDimension}`} value={lowestProductValue} change="+1.3%" changeColor="text-[#008e13]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} />
+        <KpiCard label="Top profit contributor" value={topProfitValue} change="−3.2%" changeColor="text-[#8e1311]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} />
+        {salesBy === "Product" && (
+          <WidgetCard className="flex-1 min-w-0">
+            <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
+              <div className="flex gap-[8px] items-center w-full">
+                <div className="flex flex-1 min-w-0 items-center gap-[4px]">
+                  <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{salesBreadthLabel}</span>
+                  <InfoIcon tooltip={`${salesBreadthLabel} for the selected period`} />
+                </div>
+                <AskButton label="Ask" />
+              </div>
+              {isRefreshing ? <Sk w="w-[112px]" h="h-[32px]" /> : <>
+                <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{salesBreadthValue}</span>
+                <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">{salesBreadthDetail}</span>
+              </>}
             </div>
-            {isRefreshing ? <Sk w="w-[60px]" h="h-[32px]" /> : <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">Latte</span>}
-          </div>
-        </WidgetCard>
+          </WidgetCard>
+        )}
       </div>
 
       <div className="w-full min-w-0 overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white">
@@ -3148,13 +3121,6 @@ function ProductSalesPage({
         onDelete={() => {
           deleteSavedView(editingSavedViewName);
           setEditingSavedViewName(null);
-        }}
-      />}
-      {showExportModal && <ExportModal
-        onClose={() => setShowExportModal(false)}
-        onExport={(format) => {
-          setShowExportModal(false);
-          setToast(`${format} selected`);
         }}
       />}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
