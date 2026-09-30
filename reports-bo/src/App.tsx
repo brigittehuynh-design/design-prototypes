@@ -1161,7 +1161,7 @@ function Sk({ w, h = "h-[16px]" }: { w: string; h?: string }) {
   return <span className={`skeleton ${w} ${h} align-middle`} />;
 }
 
-function KpiCard({ label, value, change, changeColor, compareLabel, showComparison, isRefreshing }: { label: string; value: string; change?: string; changeColor?: string; compareLabel?: string; showComparison: boolean; isRefreshing?: boolean }) {
+function KpiCard({ label, value, change, changeColor, compareLabel, showComparison, isRefreshing, compact = false }: { label: string; value: string; change?: string; changeColor?: string; compareLabel?: string; showComparison: boolean; isRefreshing?: boolean; compact?: boolean }) {
   return (
     <WidgetCard className="flex-1 min-w-0">
       <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
@@ -1174,8 +1174,8 @@ function KpiCard({ label, value, change, changeColor, compareLabel, showComparis
       </div>
       <div className="flex flex-col gap-[8px] items-start w-full">
         {isRefreshing
-          ? <Sk w="w-[100px]" h="h-[32px]" />
-          : <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] block w-full">{value}</span>
+          ? <Sk w="w-[100px]" h={compact ? "h-[24px]" : "h-[32px]"} />
+          : <span className={`font-['Inter:Semibold'] text-[#22201f] ${compact ? "text-[18px] leading-[24px]" : "text-[24px] leading-[32px]"} block w-full`}>{value}</span>
         }
         {showComparison && change && (
           isRefreshing
@@ -3040,9 +3040,9 @@ function ProductSalesPage({
       </div>
 
       <div className="flex w-full flex-wrap items-stretch gap-[16px]">
-        <KpiCard label={`Top selling ${metricDimension}`} value={topProductValue} change="+7.8%" changeColor="text-[#008e13]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} />
-        <KpiCard label={`Lowest selling ${metricDimension}`} value={lowestProductValue} change="+1.3%" changeColor="text-[#008e13]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} />
-        <KpiCard label="Top profit contributor" value={topProfitValue} change="−3.2%" changeColor="text-[#8e1311]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} />
+        <KpiCard label={`Top selling ${metricDimension}`} value={topProductValue} change="+7.8%" changeColor="text-[#008e13]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} compact />
+        <KpiCard label={`Lowest selling ${metricDimension}`} value={lowestProductValue} change="+1.3%" changeColor="text-[#008e13]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} compact />
+        <KpiCard label="Top profit contributor" value={topProfitValue} change="−3.2%" changeColor="text-[#8e1311]" compareLabel="Last Tuesday" showComparison isRefreshing={isRefreshing} compact />
         {salesBy === "Product" && (
           <WidgetCard className="flex-1 min-w-0">
             <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
@@ -3053,8 +3053,8 @@ function ProductSalesPage({
                 </div>
                 <AskButton label="Ask" />
               </div>
-              {isRefreshing ? <Sk w="w-[112px]" h="h-[32px]" /> : <>
-                <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{salesBreadthValue}</span>
+              {isRefreshing ? <Sk w="w-[112px]" h="h-[24px]" /> : <>
+                <span className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[24px]">{salesBreadthValue}</span>
                 <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">{salesBreadthDetail}</span>
               </>}
             </div>
