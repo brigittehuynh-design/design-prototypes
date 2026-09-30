@@ -2775,26 +2775,7 @@ function ProductSalesPage({
       : Number(String(left).replace(/[^\d.-]/g, "")) - Number(String(right).replace(/[^\d.-]/g, ""));
     return sort.direction === "asc" ? comparison : -comparison;
   });
-  const totalQuantity = reportRows.reduce((sum, row) => sum + Number(row.quantity), 0);
-  const totalSales = reportRows.reduce((sum, row) => sum + Number(row.sales.replace(/[$,]/g, "")), 0);
-  const bottomRow = [...reportRows].filter((row) => Number(row.sales.replace(/[$,]/g, "")) > 0).sort((a, b) => Number(a.sales.replace(/[$,]/g, "")) - Number(b.sales.replace(/[$,]/g, "")))[0];
-  const totalProducts = reportRows.reduce((sum, row) => sum + Number(row.products ?? 0), 0);
-  const totalOrders = reportRows.reduce((sum, row) => sum + Number(row.orders ?? 0), 0);
-  const formatCurrency = (value: number) => `$${value.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const comparisonLabel = compareSelected.id === "none" ? "last Tuesday" : lowercaseFirstLetter(compareSelected.label);
-  const changeFor = (factor: number) => `${factor > 0 ? "+" : "−"}${Math.abs(factor).toFixed(1)}%`;
-  const comparisonChange = (value: number, direction: "up" | "down") => {
-    const amount = value * 0.097;
-    const previous = direction === "up" ? value - amount : value + amount;
-    const difference = previous === 0 ? 0 : (value - previous) / previous * 100;
-    return changeFor(difference);
-  };
-  const metrics = [
-    { label: `Lowest selling ${dimensionLabel.toLowerCase()}`, value: bottomRow?.name ?? "—", change: comparisonChange(Number(bottomRow?.sales.replace(/[$,]/g, "") ?? 0), "up"), changeClass: "text-[#008e13]" },
-    { label: salesBy === "Product" ? "Quantity sold" : "Products sold", value: (salesBy === "Product" ? totalQuantity : totalProducts).toLocaleString("en-AU"), change: comparisonChange(salesBy === "Product" ? totalQuantity : totalProducts, "down"), changeClass: "text-[#8e1311]" },
-    { label: "Average sale", value: formatCurrency(totalOrders ? totalSales / totalOrders : 0), change: comparisonChange(totalSales, "up"), changeClass: "text-[#008e13]" },
-    { label: "Total sales", value: formatCurrency(totalSales), change: comparisonChange(totalSales, "up"), changeClass: "text-[#008e13]" },
-  ];
+  const showComparison = compareSelected.id !== "none";
   const columns: Array<{ key: SortKey; label: string; className: string }> = salesBy === "Product"
     ? [
         { key: "name", label: "Product", className: "w-[20%]" },
@@ -3092,24 +3073,20 @@ function ProductSalesPage({
         </div>
       </div>
 
-      <div className="grid w-full grid-cols-1 gap-[16px] sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="flex min-h-[92px] min-w-0 flex-col gap-[16px] rounded-[8px] border border-[#e3e2dd] p-[16px]">
-            <div className="flex items-center gap-[16px]">
-              <span className="min-w-0 flex-1 font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">{metric.label}</span>
-              <InfoIcon tooltip={metric.label} />
+      <div className="flex w-full flex-wrap items-stretch gap-[16px]">
+        <KpiCard label="Total sales" value="$4,182.60" change="+9.7%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
+        <KpiCard label="Orders" value="241" change="−4.6%" changeColor="text-[#8e1311]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
+        <KpiCard label="Average order" value="$17.35" change="+13.2%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
+        <WidgetCard className="flex-1 min-w-0">
+          <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full h-full">
+            <div className="flex gap-[8px] items-center w-full">
+              <span className="font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px] flex-1 min-w-0">Top selling product</span>
+              <AskButton label="Ask" />
+              <InfoIcon tooltip="Best-selling product by order volume" />
             </div>
-            <div className="flex w-full flex-col items-start gap-[8px]">
-              {isRefreshing ? <Sk w="w-[112px]" h="h-[32px]" /> : <span className="block w-full truncate font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">{metric.value}</span>}
-              {metric.change && (!metric.label.startsWith("Top selling") || compareSelected.id !== "none") && (isRefreshing ? <Sk w="w-[156px]" h="h-[16px]" /> : (
-                <p className="w-full text-[0px] leading-[0]">
-                  <span className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[24px] ${metric.changeClass}`}>{metric.change} </span>
-                  <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs {comparisonLabel}</span>
-                </p>
-              ))}
-            </div>
+            {isRefreshing ? <Sk w="w-[60px]" h="h-[32px]" /> : <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px]">Latte</span>}
           </div>
-        ))}
+        </WidgetCard>
       </div>
 
       <div className="w-full min-w-0 overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white">
