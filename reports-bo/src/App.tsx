@@ -1211,7 +1211,7 @@ function ProductRow({ rank, name, count, change, positive, showComparison, isRef
   );
 }
 
-function TopListCard({ title, items, compareLabel, showComparison, isRefreshing, onExportPng, onViewMethodology }: { title: string; compareLabel: string; showComparison: boolean; isRefreshing?: boolean; items: Array<{ rank: number; name: string; count: number; change: string; positive: boolean }>; onExportPng: () => void; onViewMethodology: () => void }) {
+function TopListCard({ title, items, compareLabel, showComparison, isRefreshing, onExportPng, onViewMethodology, onSeeMore }: { title: string; compareLabel: string; showComparison: boolean; isRefreshing?: boolean; items: Array<{ rank: number; name: string; count: number; change: string; positive: boolean }>; onExportPng: () => void; onViewMethodology: () => void; onSeeMore: () => void }) {
   const top = items[0];
   return (
     <WidgetCard className="flex-1 min-w-0 self-stretch">
@@ -1245,7 +1245,7 @@ function TopListCard({ title, items, compareLabel, showComparison, isRefreshing,
           <ProductRow key={item.rank} {...item} showComparison={showComparison} isRefreshing={isRefreshing} />
         ))}
       </div>
-      <span className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] cursor-pointer hover:underline">See more</span>
+      <button type="button" onClick={onSeeMore} className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline">See more</button>
     </div>
     </WidgetCard>
   );
@@ -1697,6 +1697,7 @@ function ReportsPrototype() {
   const initialSalesStorage = loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" });
   const initialSalesDefault = initialSalesStorage.savedFilters.find((view) => view.name === initialSalesStorage.defaultView);
   const [activeReport, setActiveReport] = useState<ReportName>("Overview");
+  const [productSalesEntryDimension, setProductSalesEntryDimension] = useState<string | null>(null);
   const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>(initialSalesDefault?.sites ?? []);
   const [selectedRegisters, setSelectedRegisters] = useState<string[]>(initialSalesDefault?.registers ?? []);
   const [taxSelected, setTaxSelected] = useState(initialSalesDefault?.tax ?? "Inclusive");
@@ -1799,10 +1800,17 @@ function ReportsPrototype() {
 
   function selectReport(report: ReportName) {
     if (report !== activeReport) refreshData();
+    if (report === "Product sales") setProductSalesEntryDimension(null);
     setActiveReport(report);
     if (report === "Overview") {
       applyDefaultView();
     }
+  }
+
+  function selectProductSales(dimension: string) {
+    if (activeReport !== "Product sales") refreshData();
+    setProductSalesEntryDimension(dimension);
+    setActiveReport("Product sales");
   }
 
   function setSalesOverviewDefault(name: string) {
@@ -1946,6 +1954,7 @@ function ReportsPrototype() {
           ) : activeReport === "Product sales" ? (
             <div className="h-0 min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
               <ProductSalesPage
+                initialSalesBy={productSalesEntryDimension}
                 selectedSiteIds={selectedSiteIds}
                 selectedSites={selectedSites}
                 siteLabel={siteLabel}
@@ -2149,21 +2158,21 @@ function ReportsPrototype() {
 
             {/* Top lists row */}
             <div className="flex gap-[16px] items-stretch w-full">
-              <TopListCard title="Top selling products" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} items={[
+              <TopListCard title="Top selling products" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} onSeeMore={() => selectProductSales("Product")} items={[
                 { rank: 1, name: "Latte", count: 82, change: "+7.4%", positive: true },
                 { rank: 2, name: "Flat White", count: 67, change: "−2.9%", positive: false },
                 { rank: 3, name: "Plain Croissant", count: 32, change: "+15.6%", positive: true },
                 { rank: 4, name: "Cappuccino", count: 31, change: "+4.8%", positive: true },
                 { rank: 5, name: "Banana Bread", count: 16, change: "−8.3%", positive: false },
               ]} />
-              <TopListCard title="Top selling categories" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} items={[
+              <TopListCard title="Top selling categories" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} onSeeMore={() => selectProductSales("Category")} items={[
                 { rank: 1, name: "Coffee", count: 187, change: "+12.1%", positive: true },
                 { rank: 2, name: "Pastries", count: 76, change: "+6.5%", positive: true },
                 { rank: 3, name: "Sweets", count: 65, change: "−5.7%", positive: false },
                 { rank: 4, name: "Toasties", count: 47, change: "+10.9%", positive: true },
                 { rank: 5, name: "Other drinks", count: 30, change: "+3.6%", positive: true },
               ]} />
-              <TopListCard title="Top selling reporting groups" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} items={[
+              <TopListCard title="Top selling reporting groups" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} onExportPng={() => setToast("PNG export selected")} onViewMethodology={() => setToast("Methodology opened")} onSeeMore={() => selectProductSales("Reporting group")} items={[
                 { rank: 1, name: "Drinks", count: 384, change: "−11.4%", positive: false },
                 { rank: 2, name: "Food", count: 265, change: "+14.7%", positive: true },
                 { rank: 3, name: "Other", count: 157, change: "−6.2%", positive: false },
@@ -2197,7 +2206,7 @@ function ReportsPrototype() {
                 <SiteTableRow rank={4} name="Foxglove – The Coffee Company" today="$2,045.94" last="$2,130.15" diff="−9.1%" positive={false} showComparison={showComparison} isRefreshing={isRefreshing} />
                 <SiteTableRow rank={5} name="Mossgate – The Coffee Company" today="$1,613.69" last="$1,440.01" diff="+5.3%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
               </div>
-              <span className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] cursor-pointer hover:underline">See more</span>
+              <button type="button" onClick={() => selectProductSales("Site")} className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline">See more</button>
             </div>
             </WidgetCard>
 
@@ -2227,7 +2236,7 @@ function ReportsPrototype() {
                 <SiteTableRow rank={4} name="Tom Ashworth" today="$2,190.30" last="$2,050.00" diff="+6.8%" positive showComparison={showComparison} isRefreshing={isRefreshing} />
                 <SiteTableRow rank={5} name="Sophie Brennan" today="$1,847.90" last="$1,920.40" diff="−3.8%" positive={false} showComparison={showComparison} isRefreshing={isRefreshing} />
               </div>
-              <span className="font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] cursor-pointer hover:underline">See more</span>
+              <button type="button" onClick={() => selectProductSales("Staff")} className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline">See more</button>
             </div>
             </WidgetCard>
           </div>
@@ -2342,7 +2351,7 @@ const PRODUCT_SALES_BREAKDOWNS: Record<string, ProductSalesRow[]> = {
   "Reporting group": createProductBreakdownRows([
     ["Beverages", 72, 284.5, 13, 57], ["Brunch", 80, 1265, 20, 63], ["Bakery", 17, 47.5, 7, 18],
   ]),
-  User: createProductBreakdownRows([
+  Staff: createProductBreakdownRows([
     ["Alex Morgan", 39, 384.5, 16, 31], ["Jordan Lee", 36, 356, 15, 29], ["Sam Taylor", 34, 328.25, 14, 27],
     ["Casey Brown", 32, 306, 13, 25], ["Riley Chen", 28, 263.75, 12, 22],
   ]),
@@ -2635,6 +2644,7 @@ function TransactionsPage({
 }
 
 function ProductSalesPage({
+  initialSalesBy,
   selectedSiteIds,
   selectedSites,
   siteLabel,
@@ -2650,6 +2660,7 @@ function ProductSalesPage({
   onSelectCompare,
   onSelectTax,
 }: {
+  initialSalesBy: string | null;
   selectedSiteIds: string[];
   selectedSites: SiteOption[];
   siteLabel: string;
@@ -2668,13 +2679,14 @@ function ProductSalesPage({
   const initialProductStorage = loadStoredValue<ProductSalesStorage>(PRODUCT_SALES_STORAGE_KEY, { savedViews: [], defaultView: "__system__" });
   const initialProductDefault = initialProductStorage.savedViews.find((view) => view.name === initialProductStorage.defaultView);
   const [openFilter, setOpenFilter] = useState<string | null>(null);
-  const [salesBy, setSalesBy] = useState(initialProductDefault?.salesBy ?? "Product");
+  const normalizeSalesBy = (value: string) => value === "User" ? "Staff" : value;
+  const [salesBy, setSalesBy] = useState(normalizeSalesBy(initialSalesBy ?? initialProductDefault?.salesBy ?? "Product"));
   const [product, setProduct] = useState<string[]>(initialProductDefault?.products ?? []);
   const [category, setCategory] = useState<string[]>(initialProductDefault?.categories ?? []);
   const [reportingGroup, setReportingGroup] = useState<string[]>(initialProductDefault?.reportingGroups ?? []);
   const [visibleFilters, setVisibleFilters] = useState<string[]>(initialProductDefault?.visibleFilters ?? []);
   const [showSavedViews, setShowSavedViews] = useState(false);
-  const [savedViews, setSavedViews] = useState<ProductSalesView[]>(initialProductStorage.savedViews);
+  const [savedViews, setSavedViews] = useState<ProductSalesView[]>(initialProductStorage.savedViews.map((view) => ({ ...view, salesBy: normalizeSalesBy(view.salesBy) })));
   const [activeViewName, setActiveViewName] = useState<string | null>(initialProductDefault?.name ?? null);
   const [defaultView, setDefaultView] = useState<string | null>(initialProductStorage.defaultView);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -2688,6 +2700,7 @@ function ProductSalesPage({
   }, [savedViews, defaultView]);
 
   useEffect(() => {
+    if (initialSalesBy !== null) return;
     if (initialProductDefault) {
       onApplyLocationSnapshot(initialProductDefault.sites, initialProductDefault.registers);
       onSelectDate(initialProductDefault.date.id, initialProductDefault.date.label);
@@ -2700,7 +2713,7 @@ function ProductSalesPage({
       onSelectTax("Inclusive");
     }
   }, []);
-  const dimensionLabel = salesBy === "User" ? "Staff member" : salesBy;
+  const dimensionLabel = salesBy === "Staff" ? "Staff member" : salesBy;
   const productRows: ProductSalesRow[] = PRODUCT_SALES_ROWS.map((row) => ({
     ...row,
     products: "1",
@@ -2719,8 +2732,8 @@ function ProductSalesPage({
   const reportRows = selectedBreakdownValues.length > 0
     ? baseRows.filter((row) => selectedBreakdownValues.includes(row.name))
     : baseRows;
-  const metricDimension = salesBy === "User" ? "staff member" : salesBy.toLowerCase();
-  const metricDimensionPlural = salesBy === "User" ? "staff members" : salesBy === "Category" ? "categories" : `${metricDimension}s`;
+  const metricDimension = salesBy === "Staff" ? "staff member" : salesBy.toLowerCase();
+  const metricDimensionPlural = salesBy === "Staff" ? "staff members" : salesBy === "Category" ? "categories" : `${metricDimension}s`;
   const topSellingRow = [...reportRows].sort((left, right) => Number(right.quantity) - Number(left.quantity))[0];
   const lowestSellingRow = [...reportRows].sort((left, right) => Number(left.quantity) - Number(right.quantity))[0];
   const topProfitRow = [...reportRows].sort((left, right) => Number(right.sales.replace(/[$,]/g, "")) - Number(left.sales.replace(/[$,]/g, "")))[0];
@@ -2809,7 +2822,7 @@ function ProductSalesPage({
   }
 
   function applyView(view: ProductSalesView) {
-    setSalesBy(view.salesBy);
+    setSalesBy(normalizeSalesBy(view.salesBy));
     setProduct(view.products);
     setCategory(view.categories);
     setReportingGroup(view.reportingGroups);
@@ -2865,7 +2878,7 @@ function ProductSalesPage({
   }
 
   const suggestedViewName = [
-    salesBy === "Category" ? "Categories" : salesBy === "Reporting group" ? "Reporting groups" : salesBy === "User" ? "Staff sales" : salesBy === "Site" ? "Site sales" : visibleFilters.includes("Category") ? "Categories" : "Products",
+    salesBy === "Category" ? "Categories" : salesBy === "Reporting group" ? "Reporting groups" : salesBy === "Staff" ? "Staff sales" : salesBy === "Site" ? "Site sales" : visibleFilters.includes("Category") ? "Categories" : "Products",
     salesBy !== "Category" && salesBy !== "Reporting group" && salesBy !== "Site" && selectedSites.length === 1 ? selectedSites[0].name.split(" – ")[0] : "",
     selectedSites.length > 1 ? `${selectedSites.length} sites` : "",
     dateSelected.id === "today" ? "" : dateSelected.id === "past-week" ? "Last week" : dateSelected.label,
@@ -2965,7 +2978,7 @@ function ProductSalesPage({
           </>}
           <div className="relative">
             <DefaultFilterChip label="Sales by" value={salesBy} onClick={() => toggleFilter("sales-by")} />
-            {openFilter === "sales-by" && <OptionsDropdown options={["Product", "Site", "Category", "Reporting group", "User"]} selected={salesBy} onSelect={(value) => { setSalesBy(value); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} width={180} />}
+            {openFilter === "sales-by" && <OptionsDropdown options={["Product", "Site", "Category", "Reporting group", "Staff"]} selected={salesBy} onSelect={(value) => { setSalesBy(value); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} width={180} />}
           </div>
           <div className="relative">
             <DefaultFilterChip label="Site" value={siteLabel} valueClassName={selectedSites.length === 1 ? "max-w-[145px]" : ""} onClick={() => toggleFilter("site")} />
