@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p _site/reports-bo
           cp -R reports-bo/dist/. _site/reports-bo/
-          for route in version-1 version-2; do
+          for route in version-1 version-2 version-3 versions; do
             mkdir -p "_site/reports-bo/$route"
             cp reports-bo/dist/index.html "_site/reports-bo/$route/index.html"
           done
