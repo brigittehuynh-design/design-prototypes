@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import VersionOnePrototype from "./VersionOne";
-import VersionThreePrototype from "./VersionThree";
-import VersionThreeBPrototype from "./VersionThreeB";
 import ActionButton from "./components/ActionButton";
 
 const assetPathPrefix = `${import.meta.env.BASE_URL}assets`;
@@ -18,6 +16,7 @@ const imgCog = `${assetPathPrefix}/87ae5.svg`;
 const imgHelp = `${assetPathPrefix}/c8458.svg`;
 const imgProfile = `${assetPathPrefix}/6c93b.svg`;
 const imgRefresh = `${assetPathPrefix}/86177.svg`;
+const imgExport = `${assetPathPrefix}/version-3-export.svg`;
 const imgChat = `${assetPathPrefix}/c3b6d.svg`;
 const imgAnnouncement = `${assetPathPrefix}/4d025.svg`;
 const imgInfo = `${assetPathPrefix}/753ad.svg`;
@@ -36,7 +35,368 @@ const imgDivider = `${assetPathPrefix}/973a3.svg`;
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-type ReportName = "Overview" | "Product sales" | "Transactions";
+type ReportName = "Reports" | "Snapshot" | "Product sales" | "Transactions";
+type SavedReportKind = Exclude<ReportName, "Reports">;
+type SavedViewSummary = { name: string; createdBy?: string };
+
+type DirectoryReport = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  report: SavedReportKind;
+  viewName?: string;
+  createdBy?: string;
+};
+
+const DEFAULT_PINNED_REPORT_IDS: string[] = [];
+const LEGACY_DEFAULT_PINNED_REPORT_IDS = ["preset:product-sales-amberley", "preset:bopple-transactions", "preset:top-products-wa"];
+const REPORT_PINS_STORAGE_KEY = "reports-bo:version-3:report-pins";
+const REPORT_DESCRIPTION = "See report on sales by product, category, site, reporting groups, and more.";
+const CURRENT_CREATOR = "Poppy B.";
+
+const reportDirectoryItems: DirectoryReport[] = [
+  { id: "preset:product-sales-amberley", title: "Product sales for Amberley VIC", description: REPORT_DESCRIPTION, category: "Sales", report: "Product sales" },
+  { id: "preset:bopple-transactions", title: "All Bopple transactions", description: REPORT_DESCRIPTION, category: "Transactions", report: "Transactions" },
+  { id: "preset:top-products-wa", title: "Top selling products in WA", description: REPORT_DESCRIPTION, category: "Sales", report: "Product sales" },
+  { id: "preset:transactions", title: "Transactions", description: REPORT_DESCRIPTION, category: "Transactions", report: "Transactions" },
+  { id: "preset:product-sales", title: "Product sales", description: REPORT_DESCRIPTION, category: "Sales", report: "Product sales" },
+];
+
+function ReportsLanding({ onSelectReport }: { onSelectReport: (report: DirectoryReport) => void }) {
+  const [category, setCategory] = useState("All");
+  const [creator, setCreator] = useState("Anyone");
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try {
+      const pins: unknown = JSON.parse(window.localStorage.getItem(REPORT_PINS_STORAGE_KEY) ?? "null");
+      return Array.isArray(pins) && pins.every((pin) => typeof pin === "string")
+        ? pins.filter((pin) => !LEGACY_DEFAULT_PINNED_REPORT_IDS.includes(pin))
+        : DEFAULT_PINNED_REPORT_IDS;
+    } catch {
+      return DEFAULT_PINNED_REPORT_IDS;
+    }
+  });
+  const savedReports: DirectoryReport[] = [
+    ...loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" }).savedFilters.filter((view) => view.createdBy).map((view) => ({ id: `saved:Snapshot:${view.name}`, title: view.name, description: REPORT_DESCRIPTION, category: "Sales", report: "Snapshot" as const, viewName: view.name, createdBy: view.createdBy })),
+    ...loadStoredValue<ProductSalesStorage>(PRODUCT_SALES_STORAGE_KEY, { savedViews: [], defaultView: "__system__" }).savedViews.filter((view) => view.createdBy).map((view) => ({ id: `saved:Product sales:${view.name}`, title: view.name, description: REPORT_DESCRIPTION, category: "Sales", report: "Product sales" as const, viewName: view.name, createdBy: view.createdBy })),
+    ...loadStoredValue<TransactionsStorage>(TRANSACTIONS_STORAGE_KEY, { savedViews: [], defaultView: "__system__" }).savedViews.filter((view) => view.createdBy).map((view) => ({ id: `saved:Transactions:${view.name}`, title: view.name, description: REPORT_DESCRIPTION, category: "Transactions", report: "Transactions" as const, viewName: view.name, createdBy: view.createdBy })),
+  ];
+  const reports = [...reportDirectoryItems, ...savedReports];
+  const creators = [...new Set(reports.map((report) => report.createdBy).filter((name): name is string => !!name))];
+  const visibleReports = reports.filter((report) =>
+    (category === "All" || report.category === category) &&
+    (creator === "Anyone" || report.createdBy === creator)
+  );
+  const pinnedReports = visibleReports.filter((report) => pinnedIds.includes(report.id));
+  const allReports = visibleReports.filter((report) => !pinnedIds.includes(report.id));
+
+  useEffect(() => {
+    window.localStorage.setItem(REPORT_PINS_STORAGE_KEY, JSON.stringify(pinnedIds));
+  }, [pinnedIds]);
+
+  function togglePin(id: string) {
+    setPinnedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function ReportRows({ reports, hoverClassName = "hover:bg-[#edeae4]" }: { reports: DirectoryReport[]; hoverClassName?: string }) {
+    return reports.map((report) => (
+      <div
+        key={report.id}
+        className={`group flex w-full items-center gap-[12px] border-t border-[#e3e2dd] p-[16px] transition-colors ${hoverClassName}`}
+      >
+        <button type="button" onClick={() => onSelectReport(report)} className="flex min-w-0 flex-1 flex-col gap-[2px] text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1e72c4]">
+          <span className="font-['Inter:Semibold'] text-[15px] leading-[22px] text-[#22201f]">{report.title}</span>
+          <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">{report.description}</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-[8px]">
+          {report.createdBy && <span className="font-['Inter:Regular'] text-[12px] leading-[16px] text-[#62615d]">Created by {report.createdBy}</span>}
+          <Tooltip text={pinnedIds.includes(report.id) ? "Unpin report" : "Pin report"}>
+            <button type="button" aria-label={`${pinnedIds.includes(report.id) ? "Unpin" : "Pin"} ${report.title}`} aria-pressed={pinnedIds.includes(report.id)} onClick={() => togglePin(report.id)} className="flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-[#777671] transition-colors hover:bg-[#e3e2dd] hover:text-[#22201f] focus-visible:outline-2 focus-visible:outline-[#1e72c4]">
+              {pinnedIds.includes(report.id) ? (
+                <svg aria-hidden="true" className="size-[16px]" fill="none" viewBox="0 0 16 16"><path d="M5.58471 10.4105L1.81348 14.1817M7.7965 4.42747L6.75591 5.46806C6.67103 5.55294 6.62859 5.59538 6.58023 5.62911C6.53731 5.65904 6.49102 5.68382 6.44231 5.70293C6.38742 5.72445 6.32857 5.73622 6.21086 5.75977L3.76788 6.24836C3.13301 6.37534 2.81558 6.43882 2.66707 6.60619C2.53769 6.752 2.47861 6.94713 2.50538 7.14021C2.53611 7.36185 2.76501 7.59075 3.22282 8.04856L7.94665 12.7724C8.40446 13.2302 8.63336 13.4591 8.855 13.4898C9.04808 13.5166 9.24321 13.4575 9.38902 13.3281C9.55639 13.1796 9.61987 12.8622 9.74685 12.2273L10.2354 9.78435C10.259 9.66664 10.2708 9.60779 10.2923 9.5529C10.3114 9.50419 10.3362 9.4579 10.3661 9.41498C10.3998 9.36662 10.4423 9.32418 10.5271 9.2393L11.5677 8.19871C11.622 8.14444 11.6491 8.1173 11.679 8.09361C11.7055 8.07256 11.7335 8.05356 11.7629 8.03678C11.796 8.01788 11.8313 8.00277 11.9018 7.97253L13.5647 7.25986C14.0498 7.05194 14.2924 6.94799 14.4026 6.78C14.499 6.63309 14.5334 6.45409 14.4985 6.28191C14.4586 6.08502 14.272 5.89841 13.8988 5.52519L10.47 2.09643C10.0968 1.72321 9.91019 1.53661 9.7133 1.49669C9.54112 1.46179 9.36212 1.49626 9.21521 1.59261C9.04722 1.7028 8.94327 1.94536 8.73535 2.4305L8.02268 4.0934C7.99244 4.16395 7.97733 4.19922 7.95843 4.23229C7.94165 4.26168 7.92265 4.28974 7.9016 4.31624C7.87791 4.34606 7.85077 4.3732 7.7965 4.42747Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.33333" /><path d="m4 4 8 8" stroke="currentColor" strokeLinecap="round" strokeWidth="1.3" /></svg>
+              ) : (
+                <svg aria-hidden="true" className="size-[16px]" fill="none" viewBox="0 0 16 16"><path d="M5.58471 10.4105L1.81348 14.1817M7.7965 4.42747L6.75591 5.46806C6.67103 5.55294 6.62859 5.59538 6.58023 5.62911C6.53731 5.65904 6.49102 5.68382 6.44231 5.70293C6.38742 5.72445 6.32857 5.73622 6.21086 5.75977L3.76788 6.24836C3.13301 6.37534 2.81558 6.43882 2.66707 6.60619C2.53769 6.752 2.47861 6.94713 2.50538 7.14021C2.53611 7.36185 2.76501 7.59075 3.22282 8.04856L7.94665 12.7724C8.40446 13.2302 8.63336 13.4591 8.855 13.4898C9.04808 13.5166 9.24321 13.4575 9.38902 13.3281C9.55639 13.1796 9.61987 12.8622 9.74685 12.2273L10.2354 9.78435C10.259 9.66664 10.2708 9.60779 10.2923 9.5529C10.3114 9.50419 10.3362 9.4579 10.3661 9.41498C10.3998 9.36662 10.4423 9.32418 10.5271 9.2393L11.5677 8.19871C11.622 8.14444 11.6491 8.1173 11.679 8.09361C11.7055 8.07256 11.7335 8.05356 11.7629 8.03678C11.796 8.01788 11.8313 8.00277 11.9018 7.97253L13.5647 7.25986C14.0498 7.05194 14.2924 6.94799 14.4026 6.78C14.499 6.63309 14.5334 6.45409 14.4985 6.28191C14.4586 6.08502 14.272 5.89841 13.8988 5.52519L10.47 2.09643C10.0968 1.72321 9.91019 1.53661 9.7133 1.49669C9.54112 1.46179 9.36212 1.49626 9.21521 1.59261C9.04722 1.7028 8.94327 1.94536 8.73535 2.4305L8.02268 4.0934C7.99244 4.16395 7.97733 4.19922 7.95843 4.23229C7.94165 4.26168 7.92265 4.28974 7.9016 4.31624C7.87791 4.34606 7.85077 4.3732 7.7965 4.42747Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.33333" /></svg>
+              )}
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+    ));
+  }
+
+  return (
+    <div className="h-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
+      <div className="mx-auto flex w-full max-w-[920px] flex-col gap-[24px] px-[20px] py-[24px] sm:px-[24px]">
+        <div className="flex flex-wrap gap-[8px]">
+          <div className="relative">
+            <DefaultFilterChip label="Category" value={category} onClick={() => setOpenFilter((current) => current === "category" ? null : "category")} />
+            {openFilter === "category" && <OptionsDropdown options={["All", "Sales", "Transactions"]} selected={category} onSelect={setCategory} onClose={() => setOpenFilter(null)} width={180} />}
+          </div>
+          <div className="relative">
+            <DefaultFilterChip label="Created by" value={creator} onClick={() => setOpenFilter((current) => current === "creator" ? null : "creator")} />
+            {openFilter === "creator" && <OptionsDropdown options={["Anyone", ...creators]} selected={creator} onSelect={setCreator} onClose={() => setOpenFilter(null)} width={180} />}
+          </div>
+        </div>
+
+        <section aria-labelledby="pinned-reports-heading" className="rounded-[12px] bg-[#f9f8f4] p-[24px]">
+            <h2 id="pinned-reports-heading" className="mb-[16px] flex items-center gap-[10px] px-[2px] font-['Inter:Semibold'] text-[16px] leading-[24px] text-[#22201f]">
+              <svg aria-hidden="true" className="size-[16px]" fill="none" viewBox="0 0 16 16"><path d="M5.58471 10.4105L1.81348 14.1817M7.7965 4.42747L6.75591 5.46806C6.67103 5.55294 6.62859 5.59538 6.58023 5.62911C6.53731 5.65904 6.49102 5.68382 6.44231 5.70293C6.38742 5.72445 6.32857 5.73622 6.21086 5.75977L3.76788 6.24836C3.13301 6.37534 2.81558 6.43882 2.66707 6.60619C2.53769 6.752 2.47861 6.94713 2.50538 7.14021C2.53611 7.36185 2.76501 7.59075 3.22282 8.04856L7.94665 12.7724C8.40446 13.2302 8.63336 13.4591 8.855 13.4898C9.04808 13.5166 9.24321 13.4575 9.38902 13.3281C9.55639 13.1796 9.61987 12.8622 9.74685 12.2273L10.2354 9.78435C10.259 9.66664 10.2708 9.60779 10.2923 9.5529C10.3114 9.50419 10.3362 9.4579 10.3661 9.41498C10.3998 9.36662 10.4423 9.32418 10.5271 9.2393L11.5677 8.19871C11.622 8.14444 11.6491 8.1173 11.679 8.09361C11.7055 8.07256 11.7335 8.05356 11.7629 8.03678C11.796 8.01788 11.8313 8.00277 11.9018 7.97253L13.5647 7.25986C14.0498 7.05194 14.2924 6.94799 14.4026 6.78C14.499 6.63309 14.5334 6.45409 14.4985 6.28191C14.4586 6.08502 14.272 5.89841 13.8988 5.52519L10.47 2.09643C10.0968 1.72321 9.91019 1.53661 9.7133 1.49669C9.54112 1.46179 9.36212 1.49626 9.21521 1.59261C9.04722 1.7028 8.94327 1.94536 8.73535 2.4305L8.02268 4.0934C7.99244 4.16395 7.97733 4.19922 7.95843 4.23229C7.94165 4.26168 7.92265 4.28974 7.9016 4.31624C7.87791 4.34606 7.85077 4.3732 7.7965 4.42747Z" stroke="#777671" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.33333" /></svg>
+              Pinned
+            </h2>
+            <ReportRows reports={pinnedReports} />
+            {pinnedReports.length === 0 && <p className="px-[16px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">Pin reports to keep them handy. They will appear here.</p>}
+          </section>
+
+        <section aria-labelledby="all-reports-heading" className="rounded-[12px] border border-[#e3e2dd] p-[24px]">
+          <h2 id="all-reports-heading" className="mb-[16px] px-[2px] font-['Inter:Semibold'] text-[16px] leading-[24px] text-[#22201f]">All reports</h2>
+          {allReports.length > 0 ? <ReportRows reports={allReports} hoverClassName="hover:bg-[#f9f8f4]" /> : <p className="border-t border-[#e3e2dd] px-[16px] py-[20px] text-[14px] leading-[20px] text-[#62615d]">No reports match these filters.</p>}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+const overviewV2Donuts = [
+  {
+    title: "Open orders",
+    segments: [{ label: "Open orders", value: "218", color: "#3390e0", share: 91 }, { label: "Closed orders", value: "23", color: "#1fc641", share: 9 }],
+  },
+  {
+    title: "Payment methods",
+    segments: [
+      { label: "Lightspeed Payments", value: "84.4%", color: "#3390e0", change: "−2.4%", positive: false, share: 54 },
+      { label: "Cash", value: "5.2%", color: "#a367e8", change: "+3.3%", positive: true, share: 14 },
+      { label: "Loyalty Credit", value: "4.8%", color: "#9bd879", change: "+8.7%", positive: true, share: 12 },
+      { label: "Gift Cards", value: "2.1%", color: "#ed8ddc", change: "+8.3%", positive: true, share: 10 },
+      { label: "Other", value: "3.5%", color: "#f4a158", change: "−2.1%", positive: false, share: 10 },
+    ],
+  },
+  {
+    title: "Order types",
+    segments: [
+      { label: "Takeaway", value: "84.4%", color: "#3390e0", change: "−2.4%", positive: false, share: 54 },
+      { label: "Dine in", value: "5.2%", color: "#a367e8", change: "+3.3%", positive: true, share: 14 },
+      { label: "Pickup", value: "4.8%", color: "#9bd879", change: "+8.7%", positive: true, share: 12 },
+      { label: "Delivery", value: "2.1%", color: "#ed8ddc", change: "+6.3%", positive: true, share: 10 },
+      { label: "Other", value: "3.5%", color: "#f4a158", change: "−2.1%", positive: false, share: 10 },
+    ],
+  },
+];
+
+function getRoundedDonutSegmentPath(startAngle: number, endAngle: number, outerRadius: number, innerRadius: number, cornerRadius: number) {
+  const point = (radius: number, angle: number) => [118 + radius * Math.cos(angle), 118 + radius * Math.sin(angle)];
+  const outerAngle = cornerRadius / outerRadius;
+  const innerAngle = cornerRadius / innerRadius;
+  const radialPoint = (radius: number, angle: number) => point(radius, angle);
+  const outerStart = point(outerRadius, startAngle + outerAngle);
+  const outerEnd = point(outerRadius, endAngle - outerAngle);
+  const innerEnd = point(innerRadius, endAngle - innerAngle);
+  const innerStart = point(innerRadius, startAngle + innerAngle);
+  const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
+
+  return [
+    `M ${outerStart.join(" ")}`,
+    `A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${outerEnd.join(" ")}`,
+    `Q ${point(outerRadius, endAngle).join(" ")} ${radialPoint(outerRadius - cornerRadius, endAngle).join(" ")}`,
+    `L ${radialPoint(innerRadius + cornerRadius, endAngle).join(" ")}`,
+    `Q ${point(innerRadius, endAngle).join(" ")} ${innerEnd.join(" ")}`,
+    `A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${innerStart.join(" ")}`,
+    `Q ${point(innerRadius, startAngle).join(" ")} ${radialPoint(innerRadius + cornerRadius, startAngle).join(" ")}`,
+    `L ${radialPoint(outerRadius - cornerRadius, startAngle).join(" ")}`,
+    `Q ${point(outerRadius, startAngle).join(" ")} ${outerStart.join(" ")} Z`,
+  ].join(" ");
+}
+
+function OverviewV2DonutCard({ title, segments, isRefreshing }: { title: string; segments: Array<{ label: string; value: string; color: string; change?: string; positive?: boolean; share: number }>; isRefreshing: boolean }) {
+  const [hoveredSegment, setHoveredSegment] = useState<number | null>(null);
+  const hoveredAngle = hoveredSegment === null
+    ? null
+    : -Math.PI / 2 + (segments.slice(0, hoveredSegment).reduce((sum, segment) => sum + segment.share, 0) + (segments[hoveredSegment].share - 2) / 2) / 100 * Math.PI * 2;
+  const tooltipX = hoveredAngle === null ? 50 : 50 + Math.cos(hoveredAngle) * 44;
+  const tooltipY = hoveredAngle === null ? 50 : 50 + Math.sin(hoveredAngle) * 44;
+  const tooltipTransform = hoveredAngle === null
+    ? "translate(-50%, -50%)"
+    : Math.abs(Math.cos(hoveredAngle)) > Math.abs(Math.sin(hoveredAngle))
+      ? `${Math.cos(hoveredAngle) > 0 ? "translate(10px, -50%)" : "translate(calc(-100% - 10px), -50%)"}`
+      : Math.sin(hoveredAngle) > 0
+        ? "translate(-50%, 10px)"
+        : "translate(-50%, calc(-100% - 10px))";
+  let startShare = 0;
+
+  return (
+    <section className="flex min-w-0 flex-1 flex-col rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+      <div className="mb-[12px] flex items-center gap-[8px]">
+        <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">{title}</h3>
+        <MetricMoreMenu onExportPng={() => {}} onViewMethodology={() => {}} />
+        <InfoIcon tooltip={title} />
+      </div>
+      <div className="relative mx-auto mb-[8px] grid size-[160px] shrink-0 place-items-center sm:size-[180px]">
+        {isRefreshing ? (
+          <div aria-label={`Loading ${title} chart`} className="skeleton size-[160px] rounded-full sm:size-[180px]" role="status" />
+        ) : <>
+        <svg aria-label={`${title} breakdown`} className="size-full overflow-visible" role="group" viewBox="0 0 236 236">
+          {segments.map((segment, index) => {
+            const separatorShare = Math.min(1, segment.share / 4);
+            const startAngle = -Math.PI / 2 + ((startShare + separatorShare / 2) / 100) * Math.PI * 2;
+            const endAngle = -Math.PI / 2 + ((startShare + segment.share - separatorShare / 2) / 100) * Math.PI * 2;
+            startShare += segment.share;
+            return (
+              <path
+                key={segment.label}
+                aria-label={`${segment.label}: ${segment.value}`}
+                className="cursor-pointer transition-opacity hover:opacity-80 focus:opacity-80"
+                d={getRoundedDonutSegmentPath(startAngle, endAngle, 118, 88, 4)}
+                fill={segment.color}
+                onBlur={() => setHoveredSegment(null)}
+                onFocus={() => setHoveredSegment(index)}
+                onMouseEnter={() => setHoveredSegment(index)}
+                onMouseLeave={() => setHoveredSegment(null)}
+                role="button"
+                tabIndex={0}
+              />
+            );
+          })}
+        </svg>
+        <div aria-hidden="true" className="pointer-events-none absolute size-[120px] rounded-full bg-white sm:size-[134px]" />
+        {hoveredSegment !== null && (
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute z-20 flex min-w-[160px] flex-col gap-[6px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] py-[10px] shadow-[0px_4px_8px_0px_rgba(18,18,18,0.1)]"
+            style={{ left: `${tooltipX}%`, top: `${tooltipY}%`, transform: tooltipTransform }}
+          >
+            <span className="font-['Inter:Medium'] text-[12px] leading-[16px] text-[#22201f]">{segments[hoveredSegment].label}</span>
+            <span className="font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{segments[hoveredSegment].value}</span>
+            {segments[hoveredSegment].change && <span className="font-['Inter:Regular'] text-[12px] leading-[16px] text-[#62615d]">{segments[hoveredSegment].change}</span>}
+          </div>
+        )}
+        </>}
+      </div>
+      <div className="mt-auto flex flex-col gap-[10px]">
+        {isRefreshing ? segments.map((segment) => (
+          <div key={segment.label} aria-hidden="true" className="flex h-[20px] items-center gap-[6px]">
+            <Sk w="w-[8px]" h="h-[8px]" />
+            <Sk w="w-[80px]" />
+            <Sk w="w-[32px]" />
+          </div>
+        )) : segments.map((segment) => (
+          <div key={segment.label} className="flex min-w-0 items-center gap-[6px] text-[14px] leading-[20px]">
+            <span aria-hidden="true" className="size-[8px] shrink-0 rounded-full" style={{ backgroundColor: segment.color }} />
+            <span className="min-w-0 flex-1 truncate text-[#22201f]">{segment.label}</span>
+            <span className="shrink-0 font-['Inter:Medium'] text-[#22201f]">{segment.value}</span>
+            {segment.change && <span className={`shrink-0 rounded-[4px] px-[4px] font-['Inter:Medium'] ${segment.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{segment.change}</span>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function OverviewV2RankedCard({ title, headline, detail, trend, rows, onSeeMore }: { title: string; headline: string; detail: string; trend: string; rows: Array<{ name: string; value: string; change: string; positive: boolean }>; onSeeMore: () => void }) {
+  return (
+    <section className="flex min-w-0 flex-1 flex-col rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+      <div className="mb-[12px] flex items-center gap-[8px]">
+        <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">{title}</h3>
+        <MetricMoreMenu onExportPng={() => {}} onViewMethodology={() => {}} />
+        <InfoIcon tooltip={title} />
+      </div>
+      <div className="mb-[12px]">
+        <p className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">{headline}</p>
+        <div className="mt-[2px] flex items-center gap-[6px] text-[14px] leading-[20px] text-[#62615d]">
+          <span>{detail}</span>
+          <span className={`rounded-[4px] px-[4px] font-['Inter:Medium'] ${trend.startsWith("+") ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{trend}</span>
+        </div>
+      </div>
+      <div className="flex flex-col">
+        {rows.map((row) => (
+          <div key={row.name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[6px] px-[6px] odd:bg-[#f9f8f4]">
+            <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{row.name}</span>
+            <span className="w-[48px] shrink-0 text-right font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{row.value}</span>
+            <span className={`shrink-0 rounded-[4px] px-[4px] font-['Inter:Medium'] text-[14px] leading-[20px] ${row.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{row.change}</span>
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={onSeeMore} className="mt-auto pt-[10px] text-left font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline">See more</button>
+    </section>
+  );
+}
+
+function OverviewV2Dashboard({ isRefreshing, compareLabel, showComparison, selectProductSales }: { isRefreshing: boolean; compareLabel: string; showComparison: boolean; selectProductSales: (dimension: string) => void }) {
+  const kpis = [
+    { label: "Total sales", value: "$4,182.60", change: "+12.4%", positive: true },
+    { label: "Orders", value: "241", change: "−12.4%", positive: false },
+    { label: "Average order value", value: "$17.35", change: "+6.2%", positive: true },
+    { label: "Top selling product", value: "Latte", change: "−3.1%", positive: false },
+  ];
+  const topCards = [
+    { title: "Sales by products", headline: "Latte", detail: "82 sold ·", trend: "+3.3%", rows: [{ name: "Latte", value: "82", change: "+3.3%", positive: true }, { name: "Flat White", value: "67", change: "−5.7%", positive: false }, { name: "Plain Croissant", value: "32", change: "+7.8%", positive: true }, { name: "Cappuccino", value: "31", change: "+12.1%", positive: true }, { name: "Banana Bread", value: "16", change: "−6.8%", positive: false }, { name: "Choc Chip Muffin", value: "9", change: "+6.4%", positive: true }], dimension: "Product" },
+    { title: "Sales by categories", headline: "Coffee", detail: "125 sold ·", trend: "+11.6%", rows: [{ name: "Coffee", value: "125", change: "+11.6%", positive: true }, { name: "Pastries", value: "67", change: "+7.1%", positive: true }, { name: "Sweets", value: "32", change: "−15.7%", positive: false }, { name: "Toasties", value: "31", change: "−5.7%", positive: false }, { name: "Other drinks", value: "16", change: "+2.0%", positive: true }], dimension: "Category" },
+    { title: "Sales by reporting groups", headline: "Drinks", detail: "187 sold ·", trend: "−11.4%", rows: [{ name: "Drinks", value: "187", change: "−11.4%", positive: false }, { name: "Food", value: "24", change: "+9.2%", positive: true }, { name: "Other", value: "12", change: "−15.7%", positive: false }], dimension: "Reporting group" },
+  ];
+  const tables = [
+    { title: "Sales by site", rows: [["Amberley – The Coffee Company", "$4,356.39", "+3.3%"], ["Brambleton – The Coffee Company", "$2,764.40", "−5.7%"], ["Copperfield – The Coffee Company", "$2,661.29", "+7.8%"], ["Foxglove – The Coffee Company", "$2,045.94", "+12.1%"], ["Mossgate – The Coffee Company", "$1,613.69", "−8.8%"], ["Pinehollow – The Coffee Company", "$914.10", "−8.6%"]] as const, dimension: "Site" },
+    { title: "Sales by staff", rows: [["Olivia Hartwell", "$614.10", "—"], ["Marcus Delgado", "$607.28", "+3.3%"], ["Priya Nair", "$547.45", "−5.7%"], ["Tom Ashworth", "$476.32", "—"], ["Sophie Brennan", "$318.79", "+3.3%"], ["Amy Tran", "$304.49", "—"]] as const, dimension: "Staff" },
+  ];
+
+  return (
+    <div className="flex w-full flex-col gap-[12px] sm:gap-[16px]">
+      <div className="grid grid-cols-2 gap-[8px] sm:grid-cols-4 sm:gap-[12px]">
+        {kpis.map((kpi) => (
+            <section key={kpi.label} className="flex min-w-0 flex-col gap-[10px] rounded-[12px] border border-[#e3e2dd] bg-white p-[16px] sm:h-[120px] sm:justify-between sm:gap-0">
+            <div className="flex items-center gap-[6px]">
+              <span className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">{kpi.label}</span>
+              <InfoIcon tooltip={kpi.label} />
+            </div>
+            <div className="flex min-w-0 flex-col items-start gap-[4px]">
+              <span className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">{isRefreshing ? <Sk w="w-[72px]" /> : kpi.value}</span>
+              <span className={`rounded-[4px] px-[5px] font-['Inter:Medium'] text-[14px] leading-[20px] ${kpi.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{kpi.change}</span>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <WidgetCard className="w-full">
+        <div className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+          <div className="mb-[8px] flex items-center gap-[8px]">
+            <h3 className="min-w-0 flex-1 font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Hourly sales</h3>
+            <MetricMoreMenu onExportPng={() => {}} onViewMethodology={() => {}} />
+            <InfoIcon tooltip="Hourly sales compared with the previous period" />
+          </div>
+          <HourlySalesChart compareLabel={compareLabel} showComparison={showComparison} isRefreshing={isRefreshing} largeLabels />
+        </div>
+      </WidgetCard>
+
+      <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
+        {overviewV2Donuts.map((chart) => <OverviewV2DonutCard key={chart.title} {...chart} isRefreshing={isRefreshing} />)}
+      </div>
+
+      <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
+        {topCards.map((card) => <OverviewV2RankedCard key={card.title} {...card} onSeeMore={() => selectProductSales(card.dimension)} />)}
+      </div>
+
+      <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-2 sm:gap-[12px]">
+        {tables.map((table) => (
+          <section key={table.title} className="min-w-0 rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+            <div className="mb-[8px] flex items-center gap-[8px]">
+              <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">{table.title}</h3>
+              <InfoIcon tooltip={table.title} />
+            </div>
+            <div className="flex flex-col">
+              {table.rows.map(([name, value, change]) => (
+                <div key={name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] px-[6px] odd:bg-[#f9f8f4]">
+                  <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{name}</span>
+                  <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{value}</span>
+                  <span className={`w-[56px] shrink-0 rounded-[4px] px-[4px] text-center font-['Inter:Medium'] text-[14px] leading-[20px] ${change.startsWith("+") ? "bg-[#d8fcdc] text-[#0d6b27]" : change === "—" ? "text-[#62615d]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{change}</span>
+                </div>
+              ))}
+            </div>
+              <button type="button" onClick={() => selectProductSales(table.dimension)} className="mt-[6px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline">See more</button>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; onSelectReport: (report: ReportName) => void }) {
   return (
@@ -56,7 +416,7 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
         <div className="flex flex-col gap-[8px] items-start w-full shrink-0">
           <NavItem icon={imgGraph} label="Reports" hasArrow />
           <div className="flex flex-col gap-[4px] items-start w-full pl-[24px]">
-            {(["Overview", "Product sales"] as const).map((report) => (
+            {([["Snapshot", "Snapshot"], ["Reports", "Reports"]] as const).map(([label, report]) => (
               <React.Fragment key={report}>
                 <button
                   type="button"
@@ -65,21 +425,9 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
                   className={`flex h-[32px] w-full items-center justify-start rounded-[8px] p-[8px] text-left transition-colors ${activeReport === report ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
                 >
                   <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === report ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
-                    {report}
+                    {label}
                   </span>
                 </button>
-                {report === "Overview" && (
-                  <button
-                    type="button"
-                    aria-current={activeReport === "Transactions" ? "page" : undefined}
-                    onClick={() => onSelectReport("Transactions")}
-                    className={`flex h-[32px] w-full items-center justify-start rounded-[8px] p-[8px] text-left transition-colors ${activeReport === "Transactions" ? "bg-[#edeae4]" : "hover:bg-[#edeae4]"}`}
-                  >
-                    <span className={`flex-1 truncate text-[14px] leading-[20px] ${activeReport === "Transactions" ? "font-['Inter:Semibold'] text-[#22201f]" : "font-['Inter:Medium'] text-[#22201f]"}`}>
-                      Transactions
-                    </span>
-                  </button>
-                )}
               </React.Fragment>
             ))}
           </div>
@@ -185,7 +533,7 @@ function DefaultFilterChip({
       disabled={disabled}
       className={`flex h-[32px] max-w-full items-center gap-[6px] rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] text-left shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer hover:bg-[#f9f8f4]"} ${chipClassName}`}
     >
-      <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">{label}</span>
+      {label && <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">{label}</span>}
       <span className={`min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px] ${valueClassName}`}>{value}</span>
     </button>
   );
@@ -207,6 +555,7 @@ type ProductSalesView = {
   reportingGroups: string[];
   tax: string;
   visibleFilters: string[];
+  createdBy?: string;
 };
 
 type SalesOverviewView = {
@@ -216,6 +565,7 @@ type SalesOverviewView = {
   date: { id: string; label: string };
   compare: { id: string; label: string };
   tax: string;
+  createdBy?: string;
 };
 
 type ProductSalesStorage = {
@@ -234,7 +584,9 @@ type TransactionView = {
   date: { id: string; label: string };
   paymentTypes: string[];
   customers: string[];
-  deletedOptions: "Hide" | "Show";
+  statuses?: string[];
+  deletedOptions?: "Hide" | "Show";
+  createdBy?: string;
 };
 
 type TransactionsStorage = {
@@ -242,9 +594,9 @@ type TransactionsStorage = {
   defaultView: string | null;
 };
 
-const PRODUCT_SALES_STORAGE_KEY = "reports-bo:version-2:product-sales";
-const SALES_OVERVIEW_STORAGE_KEY = "reports-bo:version-2:sales-overview";
-const TRANSACTIONS_STORAGE_KEY = "reports-bo:version-2:transactions";
+const PRODUCT_SALES_STORAGE_KEY = "reports-bo:version-3:product-sales";
+const SALES_OVERVIEW_STORAGE_KEY = "reports-bo:version-3:sales-overview";
+const TRANSACTIONS_STORAGE_KEY = "reports-bo:version-3:transactions";
 
 function loadStoredValue<T>(key: string, fallback: T): T {
   try {
@@ -937,6 +1289,29 @@ function InfoIcon({ tooltip }: { tooltip: string }) {
   );
 }
 
+function RefreshControl({ isRefreshing, onRefresh, minutesSinceUpdate }: { isRefreshing: boolean; onRefresh: () => void; minutesSinceUpdate: number }) {
+  const isDelayed = minutesSinceUpdate >= 1;
+  return (
+    <div className="flex shrink-0 items-center gap-[2px]">
+      <Tooltip text={isDelayed ? "Reporting data may be delayed. The pipeline is taking longer than the expected 1-minute update window." : "Reporting data is current through the last update."}>
+        <span role="status" aria-live="polite" className={`inline-flex items-center gap-[5px] whitespace-nowrap font-['Inter:Medium'] text-[12px] leading-[16px] ${isDelayed ? "text-[#9a5b00]" : "text-[#397348]"}`}>
+          <span aria-hidden="true" className={`size-[6px] rounded-full ${isDelayed ? "bg-[#d88913]" : "bg-[#4a9b63]"}`} />
+          {isDelayed ? `Data delayed · ${minutesSinceUpdate} min` : "Data current · <1 min"}
+        </span>
+      </Tooltip>
+      <button
+        type="button"
+        aria-label="Refresh report"
+        onClick={onRefresh}
+        className="flex size-[32px] items-center justify-center rounded-full transition-colors hover:bg-[#f4f3ef]"
+        title="Refresh"
+      >
+        <img alt="" src={imgRefresh} className={`block${isRefreshing ? " spin-once" : ""}`} style={{ width: 16, height: 16 }} />
+      </button>
+    </div>
+  );
+}
+
 function MetricMoreMenu({ onExportPng, onViewMethodology }: { onExportPng: () => void; onViewMethodology: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -998,12 +1373,12 @@ const HALF_HOURS = [
 const CURRENT_DATA = [120,185,310,420,510,580,640,690,720,760,810,770,680,590,480,320];
 const PREV_DATA    = [100,155,270,360,430,490,530,570,600,630,670,640,580,510,420,280];
 
-function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { compareLabel: string; showComparison: boolean; isRefreshing?: boolean }) {
+function HourlySalesChart({ compareLabel, showComparison, isRefreshing, largeLabels = false }: { compareLabel: string; showComparison: boolean; isRefreshing?: boolean; largeLabels?: boolean }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const W = 600, H = 161;
   const PAD_T = 8, PAD_B = 4, PAD_L = 0, PAD_R = 0;
-  const Y_LABEL_W = 36;
+  const Y_LABEL_W = largeLabels ? 48 : 36;
   const maxVal = Math.max(...(showComparison ? [...CURRENT_DATA, ...PREV_DATA] : CURRENT_DATA));
   const Y_TICKS = [0.25, 0.5, 0.75, 1];
 
@@ -1031,7 +1406,7 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
     <div className="w-full flex flex-col gap-[8px]">
       <div className="flex gap-[0px] w-full">
         {/* Y-axis labels */}
-        <div className="relative shrink-0 font-['Inter:Regular'] text-[#bbbab6] text-[10px] leading-none" style={{ width: Y_LABEL_W, height: H }}>
+        <div className={`relative shrink-0 font-['Inter:Regular'] text-[#bbbab6] leading-none ${largeLabels ? "text-[14px]" : "text-[10px]"}`} style={{ width: Y_LABEL_W, height: H }}>
           {Y_TICKS.map((f) => {
             const val = Math.round(maxVal * 1.05 * f);
             const top = PAD_T + (1 - f) * (H - PAD_T - PAD_B);
@@ -1066,7 +1441,7 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
           })}
 
           {/* Previous period line */}
-          {showComparison && <polyline points={makeLine(PREV_DATA)} fill="none" stroke="#f5a03b" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+          {showComparison && <polyline points={makeLine(PREV_DATA)} fill="none" stroke="#9bcdf7" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
 
           {/* Current period line */}
           <polyline points={makeLine(CURRENT_DATA)} fill="none" stroke="#58aaf5" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
@@ -1096,7 +1471,7 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
         {!isRefreshing && showComparison && hovered !== null && (
           <>
             <span
-              className="pointer-events-none absolute size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f5a03b]"
+              className="pointer-events-none absolute size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#9bcdf7]"
               style={{ left: `${tooltipX}%`, top: `${prevY}%` }}
             />
             <span
@@ -1120,16 +1495,16 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
                   : { right: `calc(${100 - xPct(hovered)}% + 10px)` }),
               }}
             >
-              <span className="font-['Inter:Medium'] text-[#22201f] text-[12px] leading-[16px]">{HALF_HOURS[hovered]}</span>
+              <span className={`font-['Inter:Medium'] text-[#22201f] leading-[20px] ${largeLabels ? "text-[14px]" : "text-[12px]"}`}>{HALF_HOURS[hovered]}</span>
               <div className="flex items-center gap-[8px]">
                 <span className="inline-block size-[8px] rounded-full bg-[#58aaf5] shrink-0" />
-                <span className="font-['Inter:Regular'] text-[#22201f] text-[13px] leading-[18px]">Today</span>
-                <span className="font-['Inter:Medium'] text-[#22201f] text-[13px] leading-[18px] ml-auto pl-[12px]">${CURRENT_DATA[hovered]}</span>
+                <span className={`font-['Inter:Regular'] text-[#22201f] leading-[20px] ${largeLabels ? "text-[14px]" : "text-[13px]"}`}>Today</span>
+                <span className={`font-['Inter:Medium'] text-[#22201f] leading-[20px] ml-auto pl-[12px] ${largeLabels ? "text-[14px]" : "text-[13px]"}`}>${CURRENT_DATA[hovered]}</span>
               </div>
               {showComparison && <div className="flex items-center gap-[8px]">
-                <span className="inline-block size-[8px] rounded-full bg-[#f5a03b] shrink-0" />
-                <span className="font-['Inter:Regular'] text-[#22201f] text-[13px] leading-[18px] flex-1 min-w-0 truncate">{compareLabel.charAt(0).toUpperCase() + compareLabel.slice(1)}</span>
-                <span className="font-['Inter:Medium'] text-[#22201f] text-[13px] leading-[18px] ml-auto pl-[12px]">${PREV_DATA[hovered]}</span>
+                <span className="inline-block size-[8px] rounded-full bg-[#9bcdf7] shrink-0" />
+                <span className={`font-['Inter:Regular'] text-[#22201f] leading-[20px] flex-1 min-w-0 truncate ${largeLabels ? "text-[14px]" : "text-[13px]"}`}>{compareLabel.charAt(0).toUpperCase() + compareLabel.slice(1)}</span>
+                <span className={`font-['Inter:Medium'] text-[#22201f] leading-[20px] ml-auto pl-[12px] ${largeLabels ? "text-[14px]" : "text-[13px]"}`}>${PREV_DATA[hovered]}</span>
               </div>}
             </div>
           );
@@ -1140,7 +1515,7 @@ function HourlySalesChart({ compareLabel, showComparison, isRefreshing }: { comp
       {/* X-axis labels */}
       <div className="flex gap-[0px] w-full">
         <div style={{ width: Y_LABEL_W }} className="shrink-0" />
-        <div className="relative flex-1 min-w-0 font-['Inter:Regular'] text-[#62615d] text-[11px]" style={{ height: 16 }}>
+        <div className={`relative flex-1 min-w-0 font-['Inter:Regular'] text-[#62615d] ${largeLabels ? "text-[14px]" : "text-[11px]"}`} style={{ height: largeLabels ? 20 : 16 }}>
         {X_LABELS.map((label, idx) => {
           const dataIdx = idx * 2;
           return (
@@ -1429,6 +1804,7 @@ function SavedFiltersMenu({
   onApplyFilter,
   onSetDefault,
   onEditFilter,
+  onSaveView,
 }: {
   savedFilters: Array<{ name: string }>;
   defaultView: string | null;
@@ -1437,6 +1813,7 @@ function SavedFiltersMenu({
   onApplyFilter: (name: string) => void;
   onSetDefault: (name: string) => void;
   onEditFilter: (name: string) => void;
+  onSaveView: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useDropdownClose(ref, onClose);
@@ -1444,43 +1821,29 @@ function SavedFiltersMenu({
   return (
     <div
       ref={ref}
-      className="absolute top-[40px] left-0 z-50 bg-white border border-[#e3e2dd] rounded-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)] w-[240px] overflow-visible p-[4px]"
+      className="absolute top-[40px] left-0 z-50 w-[220px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_0px_0px_0px_rgba(18,18,18,0.16),0px_2px_2px_0px_rgba(18,18,18,0.11),0px_4px_4px_0px_rgba(18,18,18,0.05)]"
     >
-      <div className="group flex items-center gap-[2px] rounded-[6px] px-[12px] py-[8px] hover:bg-[#f9f8f4]">
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]"
-          onClick={() => { onApplyDefault(); onClose(); }}
-        >
-          Default
-        </button>
-        <span className="group/star relative shrink-0">
+      <div className="p-[4px]">
+        <div className="group flex h-[36px] items-center gap-[8px] rounded-[6px] px-[12px] py-[8px] hover:bg-[#f9f8f4]">
           <button
             type="button"
-            aria-label="Set system filters as default view"
-            aria-pressed={defaultView === "__system__"}
-            disabled={defaultView === "__system__"}
-            className={`rounded-[4px] p-[4px] transition-colors hover:bg-[#edeae4] ${defaultView === "__system__" ? "text-[#22201f]" : "text-[#777671]"}`}
-            onClick={() => onSetDefault("__system__")}
+            className="min-w-0 flex-1 truncate text-left font-['Inter:Medium'] text-[#22201f] text-[15px] leading-[20px]"
+            onClick={() => { onApplyDefault(); onClose(); }}
           >
-            <svg aria-hidden="true" className="size-[16px]" viewBox="0 0 16 16" fill="none">
-              <path d="m8 1.5 1.9 3.85 4.25.62-3.08 3 .73 4.23L8 11.2l-3.8 2 .73-4.23-3.08-3 4.25-.62L8 1.5Z" fill={defaultView === "__system__" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-            </svg>
+            Default
           </button>
-          <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-[60] mb-[6px] hidden -translate-x-1/2 whitespace-nowrap rounded-[6px] bg-[#22201f] px-[8px] py-[6px] font-['Inter:Regular'] text-[12px] leading-[16px] text-white group-hover/star:block">
-            {defaultView === "__system__" ? "System filters are the default view" : "Set system filters as default"}
-          </span>
-        </span>
+        </div>
       </div>
-      <div className="my-[4px] h-px w-full bg-[#e3e2dd]" />
-      <div className="px-[12px] py-[8px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">My saved views</div>
+      <div className="h-px w-full bg-[#e3e2dd]" />
+      <div className="p-[4px]">
+        <div className="flex items-center px-[12px] pb-[4px] pt-[8px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">My saved views</div>
       {savedFilters.length === 0 ? (
         <div className="mx-[4px] mb-[4px] rounded-[8px] bg-[#f9f8f4] px-[12px] py-[16px] text-center">
           <p className="font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]">No saved views yet</p>
           <p className="mt-[4px] font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px]">Save your filter selection to quickly access it later.</p>
         </div>
       ) : savedFilters.map((filter) => (
-        <div key={filter.name} className="group flex items-center gap-[2px] rounded-[6px] px-[12px] py-[8px] hover:bg-[#f9f8f4]">
+        <div key={filter.name} className="group flex h-[36px] items-center gap-[8px] rounded-[6px] px-[12px] py-[8px] hover:bg-[#f9f8f4]">
           <button
             type="button"
             className="min-w-0 flex-1 truncate text-left font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]"
@@ -1505,20 +1868,28 @@ function SavedFiltersMenu({
               {defaultView === filter.name ? "Default view" : "Set as default"}
             </span>
           </span>
-          <button
-            type="button"
-            aria-label={`Rename or delete ${filter.name}`}
-            title={`Edit ${filter.name}`}
-            className="shrink-0 rounded-[4px] p-[4px] text-[#777671] opacity-60 hover:bg-[#edeae4] hover:opacity-100"
-            onClick={() => { onEditFilter(filter.name); onClose(); }}
-          >
-            <svg aria-hidden="true" className="block size-[16px]" viewBox="0 0 16 16" fill="none">
-              <path d="m10.9 2.1 3 3L5.2 13.8l-3.4.6.6-3.4 8.5-8.9Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-              <path d="m9.5 3.5 3 3" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
-          </button>
+          <Tooltip text="Settings">
+            <button
+              type="button"
+              aria-label={`Settings for ${filter.name}`}
+              className="shrink-0 rounded-[4px] p-[4px] text-[#777671] opacity-60 hover:bg-[#edeae4] hover:opacity-100"
+              onClick={() => { onEditFilter(filter.name); onClose(); }}
+            >
+              <img alt="" className="block size-[16px]" src={imgCog} />
+            </button>
+          </Tooltip>
         </div>
       ))}
+      </div>
+      <div className="border-t border-[#e3e2dd] p-[8px]">
+        <button
+          type="button"
+          className="flex h-[32px] w-full items-center justify-center rounded-[8px] bg-[#1e72c4] px-[12px] text-center font-['Inter:Semibold'] text-[14px] leading-[20px] text-white transition-colors hover:bg-[#1558a0]"
+          onClick={() => { onSaveView(); onClose(); }}
+        >
+          Save this view
+        </button>
+      </div>
     </div>
   );
 }
@@ -1608,12 +1979,6 @@ const prototypeVersions = [
     href: `${import.meta.env.BASE_URL}version-1`,
   },
   {
-    version: "Version 2",
-    updated: "30 September 2026",
-    description: "Saved filters as \"views\" and apply inline with filters.",
-    href: `${import.meta.env.BASE_URL}version-2`,
-  },
-  {
     version: "Version 3A",
     updated: "30 September 2026",
     description: "Reports library and reporting views for continued exploration.",
@@ -1646,7 +2011,7 @@ function PrototypeHome() {
               Available versions
             </h2>
             <span className="font-['Inter:Regular'] text-[#85837e] text-[12px] leading-[16px]">
-              {prototypeVersions.length} {prototypeVersions.length === 1 ? "prototype" : "prototypes"}
+              # prototypes
             </span>
           </div>
 
@@ -1693,29 +2058,20 @@ function PrototypeHome() {
   );
 }
 
-export default function App() {
+export default function VersionThree() {
   const versionOnePath = `${import.meta.env.BASE_URL}version-1`.replace(/\/+$/, "");
-  const versionTwoPath = `${import.meta.env.BASE_URL}version-2`.replace(/\/+$/, "");
-  const versionThreeAPath = `${import.meta.env.BASE_URL}version-3a`.replace(/\/+$/, "");
-  const versionThreeBPath = `${import.meta.env.BASE_URL}version-3b`.replace(/\/+$/, "");
   const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
 
   if (currentPath === versionOnePath) return <VersionOnePrototype />;
-  if (currentPath === versionTwoPath) return <VersionTwoA />;
-  if (currentPath === versionThreeAPath) return <VersionThreePrototype />;
-  if (currentPath === versionThreeBPath) return <VersionThreeBPrototype />;
-  return <PrototypeHome />;
-}
-
-function VersionTwoA() {
   return <ReportsPrototype />;
 }
 
 function ReportsPrototype() {
   const initialSalesStorage = loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" });
   const initialSalesDefault = initialSalesStorage.savedFilters.find((view) => view.name === initialSalesStorage.defaultView);
-  const [activeReport, setActiveReport] = useState<ReportName>("Overview");
+  const [activeReport, setActiveReport] = useState<ReportName>("Reports");
   const [productSalesEntryDimension, setProductSalesEntryDimension] = useState<string | null>(null);
+  const [requestedSavedViewName, setRequestedSavedViewName] = useState<string | null>(null);
   const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>(initialSalesDefault?.sites ?? []);
   const [selectedRegisters, setSelectedRegisters] = useState<string[]>(initialSalesDefault?.registers ?? []);
   const [taxSelected, setTaxSelected] = useState(initialSalesDefault?.tax ?? "Inclusive");
@@ -1723,13 +2079,12 @@ function ReportsPrototype() {
   const [dateSelected, setDateSelected] = useState<{ id: string; label: string }>(initialSalesDefault?.date ?? { id: "today", label: "Today" });
   const [compareSelected, setCompareSelected] = useState<{ id: string; label: string }>(initialSalesDefault?.compare ?? { id: "last-same-day", label: "Last Tuesday" });
   const showComparison = compareSelected.id !== "none";
-  const [showSavedViews, setShowSavedViews] = useState(false);
   const [activeViewName, setActiveViewName] = useState<string | null>(initialSalesDefault?.name ?? null);
   const [defaultView, setDefaultView] = useState<string | null>(initialSalesStorage.defaultView);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingSavedViewName, setEditingSavedViewName] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date(Date.now() - 2 * 60_000));
   const [now, setNow] = useState<Date>(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -1747,16 +2102,9 @@ function ReportsPrototype() {
     }, 800);
   }
 
-  function formatLastUpdated(last: Date, current: Date): string {
-    const diffMs = current.getTime() - last.getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "Updated just now";
-    if (mins === 1) return "Updated 1 minute ago";
-    return `Updated ${mins} minutes ago`;
-  }
+  const minutesSinceUpdate = Math.floor((now.getTime() - lastUpdated.getTime()) / 60000);
 
   const [savedFilters, setSavedFilters] = useState<SalesOverviewView[]>(initialSalesStorage.savedFilters);
-  const savedFiltersRef = useRef<HTMLDivElement>(null);
   const selectedSites = SITE_OPTIONS.slice(1).filter((site) => selectedSiteIds.includes(site.id));
   const siteLabel = selectedSites.length === 0
     ? "All sites"
@@ -1808,20 +2156,26 @@ function ReportsPrototype() {
 
   function applyDefaultView() {
     const savedDefault = savedFilters.find((filter) => filter.name === defaultView);
-    if (!savedDefault) {
-      reset();
-      return;
-    }
-    applyFilter(savedDefault);
-    setActiveViewName(savedDefault.name);
+    if (savedDefault) applyFilter(savedDefault);
+    else reset();
   }
 
   function selectReport(report: ReportName) {
     if (report !== activeReport) refreshData();
     if (report === "Product sales") setProductSalesEntryDimension(null);
+    setRequestedSavedViewName(null);
     setActiveReport(report);
-    if (report === "Overview") {
+    if (report === "Snapshot") {
       applyDefaultView();
+    }
+  }
+
+  function selectDirectoryReport(report: DirectoryReport) {
+    selectReport(report.report);
+    setRequestedSavedViewName(report.viewName ?? null);
+    if (report.viewName && report.report === "Snapshot") {
+      const view = savedFilters.find((filter) => filter.name === report.viewName);
+      if (view) applyFilter(view);
     }
   }
 
@@ -1829,17 +2183,6 @@ function ReportsPrototype() {
     if (activeReport !== "Product sales") refreshData();
     setProductSalesEntryDimension(dimension);
     setActiveReport("Product sales");
-  }
-
-  function setSalesOverviewDefault(name: string) {
-    setDefaultView(name);
-    const view = savedFilters.find((filter) => filter.name === name);
-    if (view) {
-      applyFilter(view);
-      setActiveViewName(view.name);
-    } else {
-      reset();
-    }
   }
 
   function saveCurrentFilters(name: string) {
@@ -1852,6 +2195,7 @@ function ReportsPrototype() {
         date: dateSelected,
         compare: compareSelected,
         tax: taxSelected,
+        createdBy: CURRENT_CREATOR,
       },
     ]);
     setActiveViewName(name);
@@ -1939,31 +2283,25 @@ function ReportsPrototype() {
           {/* Title header — stays fixed */}
           <div className="border-b border-[#e3e2dd] flex gap-[16px] items-center px-[24px] py-[12px] w-full shrink-0">
             <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] min-w-0 truncate">{activeReport}</span>
-            <div className="flex items-center gap-[2px] flex-1 min-w-0">
-              <button
-                onClick={refreshData}
-                className="flex items-center justify-center rounded-full size-[32px] hover:bg-[#f4f3ef] transition-colors shrink-0"
-                title="Refresh"
-              >
-                <img alt="Refresh" src={imgRefresh} className={`block${isRefreshing ? " spin-once" : ""}`} style={{ width: 16, height: 16 }} />
-              </button>
-              <span className="font-['Inter:Regular'] text-[#62615d] text-[12px] leading-[16px] whitespace-nowrap">
-                {formatLastUpdated(lastUpdated, now)}
-              </span>
-            </div>
+            <div className="flex-1 min-w-0" />
             <img alt="" className="block shrink-0 size-[24px] cursor-pointer" src={imgChat} />
             <img alt="" className="block shrink-0 size-[24px] cursor-pointer" src={imgAnnouncement} />
             <ActionButton variant="secondary" size="slim">POS</ActionButton>
           </div>
 
-          {activeReport === "Transactions" ? (
+          {activeReport === "Reports" ? (
+            <ReportsLanding onSelectReport={selectDirectoryReport} />
+          ) : activeReport === "Transactions" ? (
             <div className="h-0 min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
               <TransactionsPage
+                requestedSavedViewName={requestedSavedViewName}
                 selectedSiteIds={selectedSiteIds}
                 selectedSites={selectedSites}
                 siteLabel={siteLabel}
                 dateSelected={dateSelected}
                 isRefreshing={isRefreshing}
+                minutesSinceUpdate={minutesSinceUpdate}
+                onRefresh={refreshData}
                 onToggleSite={toggleSite}
                 onApplyLocationSnapshot={(sites, registers) => { setSelectedSiteIds(sites); setSelectedRegisters(registers); }}
                 onSelectDate={(id, label) => setDateSelected({ id, label })}
@@ -1972,6 +2310,7 @@ function ReportsPrototype() {
           ) : activeReport === "Product sales" ? (
             <div className="h-0 min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
               <ProductSalesPage
+                requestedSavedViewName={requestedSavedViewName}
                 initialSalesBy={productSalesEntryDimension}
                 selectedSiteIds={selectedSiteIds}
                 selectedSites={selectedSites}
@@ -1981,6 +2320,8 @@ function ReportsPrototype() {
                 compareSelected={compareSelected}
                 taxSelected={taxSelected}
                 isRefreshing={isRefreshing}
+                minutesSinceUpdate={minutesSinceUpdate}
+                onRefresh={refreshData}
                 onToggleSite={toggleSite}
                 onApplyRegisters={(names) => {
                   const sites = selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1);
@@ -2004,39 +2345,12 @@ function ReportsPrototype() {
                 onSelectTax={setTaxSelected}
               />
             </div>
-          ) : (
-          /* Scrollable content area */
-          <div className="flex flex-col gap-[24px] items-start p-[24px] w-full overflow-y-auto flex-1">
+           ) : (
+           /* Scrollable content area */
+           <div className="flex flex-col gap-[24px] items-start p-[24px] w-full overflow-y-auto flex-1">
             {/* Filter bar */}
             <div className="flex w-full flex-wrap items-start gap-[8px]">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
-              {savedFilters.length > 0 && (
-                <>
-              <div ref={savedFiltersRef} className="relative">
-                <DefaultFilterChip
-                  label="View"
-                  value={activeViewName ?? "Default"}
-                  valueClassName={activeViewName ? "max-w-[120px]" : ""}
-                  onClick={() => setShowSavedViews((visible) => !visible)}
-                />
-                {showSavedViews && (
-                  <SavedFiltersMenu
-                    savedFilters={savedFilters}
-                    defaultView={defaultView}
-                    onClose={() => setShowSavedViews(false)}
-                    onApplyDefault={applyDefaultView}
-                    onApplyFilter={(name) => {
-                      const filter = savedFilters.find((savedFilter) => savedFilter.name === name);
-                      if (filter) applyFilter(filter);
-                    }}
-                    onSetDefault={setSalesOverviewDefault}
-                    onEditFilter={setEditingSavedViewName}
-                  />
-                )}
-              </div>
-              <div aria-hidden="true" className="mx-[4px] h-[24px] w-px shrink-0 bg-[#e3e2dd]" />
-                </>
-              )}
               <div className="relative">
                   <DefaultFilterChip
                     label="Site"
@@ -2061,7 +2375,7 @@ function ReportsPrototype() {
                 >
                   <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">Date</span>
                   <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{dateSelected.label}</span>
-                  <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs</span>
+                  <span className="-mx-[4px] shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs</span>
                   <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{compareSelected.label}</span>
                 </button>
                 {openFilter === "date" && (
@@ -2098,22 +2412,23 @@ function ReportsPrototype() {
                   )}
                 </div>
               )}
-
+              {isFilteredFromDefault && (
+                <div className="ml-[8px] flex items-center gap-[12px]">
+                  <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={reset}>Reset</ActionButton>
+                  {!isSaved && <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}
+                </div>
+              )}
               </div>
 
               {/* Right actions */}
               <div className="ml-auto flex shrink-0 items-center gap-[8px]">
-                {isFilteredFromDefault && (
-                  <>
-                    <ActionButton variant="text" size="slim" onClick={reset}>Reset</ActionButton>
-                    {!isSaved && (
-                      <ActionButton variant="primary" size="slim" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>
-                    )}
-                  </>
-                )}
+                <RefreshControl isRefreshing={isRefreshing} onRefresh={refreshData} minutesSinceUpdate={minutesSinceUpdate} />
               </div>
             </div>
 
+            {activeReport === "Snapshot" ? (
+              <OverviewV2Dashboard isRefreshing={isRefreshing} compareLabel={compareSelected.label} showComparison={showComparison} selectProductSales={selectProductSales} />
+            ) : <>
             {/* KPI row */}
             <div className="flex gap-[16px] items-start w-full">
               <KpiCard label="Total sales" value="$4,182.60" change="+9.7%" changeColor="text-[#008e13]" compareLabel={compareSelected.label} showComparison={showComparison} isRefreshing={isRefreshing} />
@@ -2231,10 +2546,11 @@ function ReportsPrototype() {
               <button type="button" onClick={() => selectProductSales("Staff")} className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline">See more</button>
             </div>
             </WidgetCard>
+            </>}
           </div>
           )}
+          </div>
         </div>
-      </div>
 
       {/* Save View Modal */}
       {showSaveModal && (
@@ -2370,6 +2686,22 @@ type TransactionRow = {
   deleted: boolean;
 };
 
+function SortIcon({ isSorted, direction }: { isSorted: boolean; direction: "asc" | "desc" }) {
+  if (!isSorted) {
+    return (
+      <svg aria-hidden="true" className="size-[20px] shrink-0 text-[#22201f]" viewBox="0 0 20 20" fill="none">
+        <path d="M7.5 12.5L10 15L12.5 12.5M7.5 9.5L10 7L12.5 9.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" className={`size-[20px] shrink-0 text-[#22201f] transition-transform ${direction === "desc" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="none">
+      <path d="M10 14.5V7.5M13.5 11L10 7.5L6.5 11" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const TERMINAL_PREFIX_BY_SITE: Record<string, Record<string, string>> = {
   amberley: { "Front POS": "SP-4", "POS A": "SP-2", "Back POS": "SP-3" },
   brambleton: { "Front POS": "SP-1", "POS A": "SP-2", "Back POS": "SP-5" },
@@ -2385,14 +2717,14 @@ function formatTransactionSaleNumber(siteId: string, terminal: string, sequence:
 }
 
 const BASE_TRANSACTION_ROWS: TransactionRow[] = [
-  { saleNumber: formatTransactionSaleNumber("amberley", "Front POS", 4724), dateTime: "30 Sep 2026, 10:42 am", site: "Amberley", terminal: "Front POS", operator: "Alex Morgan", customer: "Jamie Wilson", tipAmount: "$4.50", netAmount: "$42.00", taxAmount: "$4.20", total: "$50.70", payments: "Visa", surcharge: "$0.00", siteId: "amberley", register: "Front POS", products: ["Long Black", "Salmon Fillet"], categories: ["Coffee", "Mains"], taxType: "Inclusive", deleted: false },
-  { saleNumber: formatTransactionSaleNumber("brambleton", "POS A", 4723), dateTime: "30 Sep 2026, 10:36 am", site: "Brambleton", terminal: "POS A", operator: "Jordan Lee", customer: "Walk-in", tipAmount: "$0.00", netAmount: "$18.18", taxAmount: "$1.82", total: "$20.00", payments: "Mastercard", surcharge: "$0.40", siteId: "brambleton", register: "POS A", products: ["Margherita Pizza - 12in"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
+  { saleNumber: formatTransactionSaleNumber("amberley", "Front POS", 4724), dateTime: "30 Sep 2026, 10:42 am", site: "Amberley", terminal: "Front POS", operator: "Alex Morgan", customer: "Jamie Wilson", tipAmount: "$4.50", netAmount: "$42.00", taxAmount: "$4.20", total: "$50.70", payments: "Lightspeed Payments", surcharge: "$0.00", siteId: "amberley", register: "Front POS", products: ["Long Black", "Salmon Fillet"], categories: ["Coffee", "Mains"], taxType: "Inclusive", deleted: false },
+  { saleNumber: formatTransactionSaleNumber("brambleton", "POS A", 4723), dateTime: "30 Sep 2026, 10:36 am", site: "Brambleton", terminal: "POS A", operator: "Jordan Lee", customer: "Walk-in", tipAmount: "$0.00", netAmount: "$18.18", taxAmount: "$1.82", total: "$20.00", payments: "Account credit", surcharge: "$0.00", siteId: "brambleton", register: "POS A", products: ["Margherita Pizza - 12in"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
   { saleNumber: formatTransactionSaleNumber("oakridge", "Back POS", 4722), dateTime: "30 Sep 2026, 10:21 am", site: "Oakridge", terminal: "Back POS", operator: "Sam Taylor", customer: "Morgan Davis", tipAmount: "$2.00", netAmount: "$16.36", taxAmount: "$1.64", total: "$20.00", payments: "Cash", surcharge: "$0.00", siteId: "oakridge", register: "Back POS", products: ["Eggs Bene - Bacon"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
-  { saleNumber: formatTransactionSaleNumber("pinehollow", "Front POS", 4721), dateTime: "30 Sep 2026, 10:08 am", site: "Pinehollow", terminal: "Front POS", operator: "Casey Brown", customer: "Taylor Smith", tipAmount: "$1.25", netAmount: "$11.14", taxAmount: "$1.11", total: "$13.50", payments: "Visa", surcharge: "$0.00", siteId: "pinehollow", register: "Front POS", products: ["Matcha Latte - Regular", "Hashbrown"], categories: ["Coffee", "Sides"], taxType: "Inclusive", deleted: false },
-  { saleNumber: formatTransactionSaleNumber("riverbend", "POS A", 4720), dateTime: "30 Sep 2026, 9:54 am", site: "Riverbend", terminal: "POS A", operator: "Riley Chen", customer: "Walk-in", tipAmount: "$0.00", netAmount: "$27.27", taxAmount: "$2.73", total: "$30.00", payments: "Amex", surcharge: "$0.90", siteId: "riverbend", register: "POS A", products: ["Salt & Pepper Squid"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
-  { saleNumber: formatTransactionSaleNumber("willowmere", "Back POS", 4719), dateTime: "30 Sep 2026, 9:41 am", site: "Willowmere", terminal: "Back POS", operator: "Alex Morgan", customer: "Avery Taylor", tipAmount: "$3.00", netAmount: "$12.73", taxAmount: "$1.27", total: "$17.00", payments: "Visa", surcharge: "$0.00", siteId: "willowmere", register: "Back POS", products: ["Pastry selection"], categories: ["Pastries"], taxType: "Inclusive", deleted: false },
+  { saleNumber: formatTransactionSaleNumber("pinehollow", "Front POS", 4721), dateTime: "30 Sep 2026, 10:08 am", site: "Pinehollow", terminal: "Front POS", operator: "Casey Brown", customer: "Taylor Smith", tipAmount: "$1.25", netAmount: "$11.14", taxAmount: "$1.11", total: "$13.50", payments: "Lightspeed Payments", surcharge: "$0.00", siteId: "pinehollow", register: "Front POS", products: ["Matcha Latte - Regular", "Hashbrown"], categories: ["Coffee", "Sides"], taxType: "Inclusive", deleted: false },
+  { saleNumber: formatTransactionSaleNumber("riverbend", "POS A", 4720), dateTime: "30 Sep 2026, 9:54 am", site: "Riverbend", terminal: "POS A", operator: "Riley Chen", customer: "Walk-in", tipAmount: "$0.00", netAmount: "$27.27", taxAmount: "$2.73", total: "$30.00", payments: "Gift cards", surcharge: "$0.00", siteId: "riverbend", register: "POS A", products: ["Salt & Pepper Squid"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
+  { saleNumber: formatTransactionSaleNumber("willowmere", "Back POS", 4719), dateTime: "30 Sep 2026, 9:41 am", site: "Willowmere", terminal: "Back POS", operator: "Alex Morgan", customer: "Avery Taylor", tipAmount: "$3.00", netAmount: "$12.73", taxAmount: "$1.27", total: "$17.00", payments: "Account credit", surcharge: "$0.00", siteId: "willowmere", register: "Back POS", products: ["Pastry selection"], categories: ["Pastries"], taxType: "Inclusive", deleted: false },
   { saleNumber: formatTransactionSaleNumber("amberley", "POS A", 4718), dateTime: "30 Sep 2026, 9:22 am", site: "Amberley", terminal: "POS A", operator: "Jordan Lee", customer: "Chris Martin", tipAmount: "$0.00", netAmount: "$3.00", taxAmount: "$0.30", total: "$3.30", payments: "Cash", surcharge: "$0.00", siteId: "amberley", register: "POS A", products: ["Long Black"], categories: ["Coffee"], taxType: "Inclusive", deleted: false },
-  { saleNumber: formatTransactionSaleNumber("brambleton", "Front POS", 4717), dateTime: "30 Sep 2026, 9:10 am", site: "Brambleton", terminal: "Front POS", operator: "Sam Taylor", customer: "Walk-in", tipAmount: "$2.50", netAmount: "$22.73", taxAmount: "$2.27", total: "$27.50", payments: "Mastercard", surcharge: "$0.00", siteId: "brambleton", register: "Front POS", products: ["Chef special pizza"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
+  { saleNumber: formatTransactionSaleNumber("brambleton", "Front POS", 4717), dateTime: "30 Sep 2026, 9:10 am", site: "Brambleton", terminal: "Front POS", operator: "Sam Taylor", customer: "Walk-in", tipAmount: "$2.50", netAmount: "$22.73", taxAmount: "$2.27", total: "$27.50", payments: "Gift cards", surcharge: "$0.00", siteId: "brambleton", register: "Front POS", products: ["Chef special pizza"], categories: ["Mains"], taxType: "Inclusive", deleted: false },
   { saleNumber: formatTransactionSaleNumber("oakridge", "Back POS", 4716), dateTime: "30 Sep 2026, 8:58 am", site: "Oakridge", terminal: "Back POS", operator: "Casey Brown", customer: "Walk-in", tipAmount: "$0.00", netAmount: "$7.27", taxAmount: "$0.73", total: "$8.00", payments: "Cash", surcharge: "$0.00", siteId: "oakridge", register: "Back POS", products: ["Hashbrown"], categories: ["Sides"], taxType: "Inclusive", deleted: true },
 ];
 
@@ -2410,7 +2742,7 @@ const TRANSACTION_ROWS: TransactionRow[] = [
       { product: "Salt & Pepper Squid", category: "Mains" },
     ];
     const { product, category } = productsByCategory[index % productsByCategory.length];
-    const payment = ["Visa", "Mastercard", "Cash", "Amex"][index % 4];
+    const payment = ["Account credit", "Cash", "Gift cards", "Lightspeed Payments"][index % 4];
     const total = 8.5 + (index * 7.35 % 125);
     const net = total / 1.1;
     const date = new Date(2026, 8, 30 - Math.floor(index / 15), 8 + (index % 10), (index * 7) % 60);
@@ -2428,7 +2760,7 @@ const TRANSACTION_ROWS: TransactionRow[] = [
       taxAmount: formatAmount(total - net),
       total: formatAmount(total),
       payments: payment,
-      surcharge: formatAmount(payment === "Visa" || payment === "Mastercard" || payment === "Amex" ? total * 0.015 : 0),
+      surcharge: formatAmount(payment === "Lightspeed Payments" ? total * 0.015 : 0),
       siteId: site.id,
       register: terminals[index % terminals.length],
       products: [product],
@@ -2440,14 +2772,18 @@ const TRANSACTION_ROWS: TransactionRow[] = [
 ];
 
 function TransactionsPage({
-  selectedSiteIds, selectedSites, siteLabel, dateSelected, isRefreshing,
+  requestedSavedViewName,
+  selectedSiteIds, selectedSites, siteLabel, dateSelected, isRefreshing, minutesSinceUpdate, onRefresh,
   onToggleSite, onApplyLocationSnapshot, onSelectDate,
 }: {
+  requestedSavedViewName: string | null;
   selectedSiteIds: string[];
   selectedSites: SiteOption[];
   siteLabel: string;
   dateSelected: { id: string; label: string };
   isRefreshing: boolean;
+  minutesSinceUpdate: number;
+  onRefresh: () => void;
   onToggleSite: (id: string) => void;
   onApplyLocationSnapshot: (sites: string[], registers: string[]) => void;
   onSelectDate: (id: string, label: string) => void;
@@ -2457,24 +2793,23 @@ function TransactionsPage({
   const [savedViews, setSavedViews] = useState<TransactionView[]>(stored.savedViews);
   const [defaultView, setDefaultView] = useState<string | null>(stored.defaultView);
   const [activeViewName, setActiveViewName] = useState<string | null>(null);
-  const [showSavedViews, setShowSavedViews] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingSavedViewName, setEditingSavedViewName] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [paymentTypes, setPaymentTypes] = useState<string[]>(initialDefault?.paymentTypes ?? []);
   const [customers, setCustomers] = useState<string[]>(initialDefault?.customers ?? []);
-  const [deletedOptions, setDeletedOptions] = useState<"Hide" | "Show">(initialDefault?.deletedOptions ?? "Hide");
+  const [statuses, setStatuses] = useState<string[]>(initialDefault?.statuses ?? (initialDefault?.deletedOptions === "Show" ? [] : ["Processed"]));
   const [sort, setSort] = useState<{ key: keyof TransactionRow; direction: "asc" | "desc" }>({ key: "dateTime", direction: "desc" });
   const [isTransactionTableScrolled, setIsTransactionTableScrolled] = useState(false);
   const paymentTypesRef = useRef<HTMLDivElement>(null);
-  const deletedOptionsRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   const transactionTableRef = useRef<HTMLDivElement>(null);
   useDropdownClose(paymentTypesRef, () => {
     if (openFilter === "payment-types") setOpenFilter(null);
   });
-  useDropdownClose(deletedOptionsRef, () => {
-    if (openFilter === "deleted-options") setOpenFilter(null);
+  useDropdownClose(statusRef, () => {
+    if (openFilter === "status") setOpenFilter(null);
   });
 
   useEffect(() => {
@@ -2487,7 +2822,7 @@ function TransactionsPage({
       onSelectDate(initialDefault.date.id, initialDefault.date.label);
       setPaymentTypes(initialDefault.paymentTypes ?? []);
       setCustomers(initialDefault.customers ?? []);
-      setDeletedOptions(initialDefault.deletedOptions ?? "Hide");
+      setStatuses(initialDefault.statuses ?? (initialDefault.deletedOptions === "Show" ? [] : ["Processed"]));
       setActiveViewName(initialDefault.name);
     } else {
       onApplyLocationSnapshot([], []);
@@ -2495,29 +2830,34 @@ function TransactionsPage({
     }
   }, []);
 
+  useEffect(() => {
+    if (!requestedSavedViewName) return;
+    const view = savedViews.find((savedView) => savedView.name === requestedSavedViewName);
+    if (view) applyView(view);
+  }, [requestedSavedViewName]);
+
   const filterSnapshot = (): TransactionView => ({
-    name: "", sites: selectedSiteIds, date: dateSelected, paymentTypes, customers, deletedOptions,
+    name: "", sites: selectedSiteIds, date: dateSelected, paymentTypes, customers, statuses,
   });
   const applyView = (view: TransactionView) => {
     onApplyLocationSnapshot(view.sites, []);
     onSelectDate(view.date.id, view.date.label);
     setPaymentTypes(view.paymentTypes ?? []);
     setCustomers(view.customers ?? []);
-    setDeletedOptions(view.deletedOptions ?? "Hide");
+    setStatuses(view.statuses ?? (view.deletedOptions === "Show" ? [] : ["Processed"]));
     setActiveViewName(view.name);
   };
   const resetFilters = () => {
     onApplyLocationSnapshot([], []);
     onSelectDate("today", "Today");
-    setPaymentTypes([]); setCustomers([]); setDeletedOptions("Hide"); setActiveViewName(null); setOpenFilter(null);
+    setPaymentTypes([]); setCustomers([]); setStatuses(["Processed"]); setActiveViewName(null); setOpenFilter(null);
   };
-  const defaultSavedView = savedViews.find((view) => view.name === defaultView);
-  const isFiltered = selectedSiteIds.length > 0 || dateSelected.id !== "today" || paymentTypes.length > 0 || customers.length > 0 || deletedOptions !== "Hide";
+  const isFiltered = selectedSiteIds.length > 0 || dateSelected.id !== "today" || paymentTypes.length > 0 || customers.length > 0 || statuses.length !== 1 || statuses[0] !== "Processed";
   const activeRows = TRANSACTION_ROWS.filter((row) =>
     (selectedSiteIds.length === 0 || selectedSiteIds.includes(row.siteId)) &&
     (paymentTypes.length === 0 || paymentTypes.includes(row.payments)) &&
     (customers.length === 0 || customers.includes(row.customer)) &&
-    (deletedOptions === "Show" || !row.deleted)
+    (statuses.length === 0 || statuses.includes(row.deleted ? "Deleted" : "Processed"))
   );
   const sortedRows = [...activeRows].sort((left, right) => {
     const leftValue = left[sort.key];
@@ -2556,20 +2896,18 @@ function TransactionsPage({
     { key: "payments", label: "Payments", width: "w-[140px]" },
     { key: "surcharge", label: "Surcharge", width: "w-[130px]", align: "text-right" },
   ];
-  const paymentOptions = [...new Set(TRANSACTION_ROWS.map((row) => row.payments))];
+  const paymentOptions = ["Account credit", "Bopple", "Cash", "Gift cards", "Lightspeed Payments", "Loyalty credit", "UberEats"];
   const customerOptions = [...new Set(TRANSACTION_ROWS.map((row) => row.customer))].sort((left, right) => left.localeCompare(right));
 
-  function applyCurrentDefault() {
-    if (defaultSavedView) applyView(defaultSavedView);
-    else resetFilters();
-  }
   function saveView(name: string) {
-    setSavedViews((current) => [...current, { ...filterSnapshot(), name }]);
+    setSavedViews((current) => [...current, { ...filterSnapshot(), name, createdBy: CURRENT_CREATOR }]);
     setActiveViewName(name);
+    setShowSaveModal(false);
   }
   function saveExistingView(name: string) {
-    setSavedViews((current) => current.map((view) => view.name === name ? { ...filterSnapshot(), name } : view));
+    setSavedViews((current) => current.map((view) => view.name === name ? { ...filterSnapshot(), name, createdBy: view.createdBy ?? CURRENT_CREATOR } : view));
     setActiveViewName(name);
+    setShowSaveModal(false);
   }
   function renameView(oldName: string, newName: string) {
     setSavedViews((current) => current.map((view) => view.name === oldName ? { ...view, name: newName } : view));
@@ -2585,6 +2923,7 @@ function TransactionsPage({
   const suggestedViewName = selectedSites.length === 1 ? selectedSites[0].name.split(" – ")[0] : selectedSites.length > 1 ? `${selectedSites.length} sites` : "Transactions";
   const paymentTypeLabel = paymentTypes.length === 0 ? "All" : paymentTypes.length === 1 ? paymentTypes[0] : `${paymentTypes.length} selected`;
   const customerLabel = customers.length === 0 ? "All" : customers.length === 1 ? customers[0] : `${customers.length} selected`;
+  const statusLabel = statuses.length === 0 || statuses.length === 2 ? "All" : statuses[0];
   function togglePaymentType(type: string) {
     setPaymentTypes((current) => current.includes(type) ? current.filter((value) => value !== type) : [...current, type]);
     setActiveViewName(null);
@@ -2593,7 +2932,6 @@ function TransactionsPage({
   return <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-[24px] px-[24px] pt-[24px] pb-0">
     <div className="flex w-full flex-wrap items-start gap-[8px]">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
-        {savedViews.length > 0 && <><div className="relative"><DefaultFilterChip label="View" value={activeViewName ?? "Default"} onClick={() => setShowSavedViews((current) => !current)} />{showSavedViews && <SavedFiltersMenu savedFilters={savedViews} defaultView={defaultView} onClose={() => setShowSavedViews(false)} onApplyDefault={() => { applyCurrentDefault(); setShowSavedViews(false); }} onApplyFilter={(name) => { const view = savedViews.find((entry) => entry.name === name); if (view) applyView(view); setShowSavedViews(false); }} onSetDefault={(name) => { setDefaultView(name); const view = savedViews.find((entry) => entry.name === name); if (view) applyView(view); else { resetFilters(); setActiveViewName("Default"); } }} onEditFilter={setEditingSavedViewName} />}</div><div aria-hidden="true" className="mx-[4px] h-[24px] w-px bg-[#e3e2dd]" /></>}
         <div className="relative"><DefaultFilterChip label="Site" value={siteLabel} valueClassName={selectedSites.length === 1 ? "max-w-[145px]" : ""} onClick={() => setOpenFilter("site")} />{openFilter === "site" && <SiteDropdown selectedIds={selectedSiteIds} onToggle={onToggleSite} onClose={() => setOpenFilter(null)} />}</div>
         <div className="relative"><DefaultFilterChip label="Date" value={dateSelected.label} onClick={() => setOpenFilter("date")} />{openFilter === "date" && <TransactionDateDropdown selected={dateSelected.id} onSelect={onSelectDate} onClose={() => setOpenFilter(null)} />}</div>
         <div className="relative">
@@ -2601,29 +2939,35 @@ function TransactionsPage({
           {openFilter === "customer" && <MultiSelectDropdown title="Customer" options={customerOptions} selected={customers} onApply={(values) => { setCustomers(values); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} searchable />}
         </div>
         <div ref={paymentTypesRef} className="relative">
-          <DefaultFilterChip label="Payment types" value={paymentTypeLabel} onClick={() => setOpenFilter((current) => current === "payment-types" ? null : "payment-types")} />
+          <DefaultFilterChip label="Payment" value={paymentTypeLabel} onClick={() => setOpenFilter((current) => current === "payment-types" ? null : "payment-types")} />
           {openFilter === "payment-types" && <div className="absolute left-0 top-[40px] z-50 w-[220px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
             {paymentOptions.map((option) => <CheckboxMenuRow key={option} label={option} checked={paymentTypes.includes(option)} onClick={() => togglePaymentType(option)} />)}
           </div>}
         </div>
-        <div ref={deletedOptionsRef} className="relative">
-          <DefaultFilterChip label="Deleted orders" value={deletedOptions} onClick={() => setOpenFilter((current) => current === "deleted-options" ? null : "deleted-options")} />
-          {openFilter === "deleted-options" && <div className="absolute left-0 top-[40px] z-50 w-[220px] rounded-[8px] border border-[#e3e2dd] bg-white p-[8px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
-            <p className="mb-[8px] px-[4px] font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">Show or hide deleted transactions</p>
-            <div role="group" aria-label="Deleted orders" className="flex rounded-[8px] bg-[#f2f0ea] p-[2px]">
-              {(["Hide", "Show"] as const).map((option) => <button key={option} type="button" aria-pressed={deletedOptions === option} onClick={() => { setDeletedOptions(option); setActiveViewName(null); }} className={`flex-1 rounded-[6px] px-[12px] py-[6px] font-['Inter:Medium'] text-[14px] leading-[20px] transition-colors ${deletedOptions === option ? "bg-white text-[#22201f] shadow-sm" : "text-[#62615d] hover:text-[#22201f]"}`}>{option}</button>)}
-            </div>
+        <div ref={statusRef} className="relative">
+          <DefaultFilterChip label="Status" value={statusLabel} onClick={() => setOpenFilter((current) => current === "status" ? null : "status")} />
+          {openFilter === "status" && <div role="group" aria-label="Transaction status" className="absolute left-0 top-[40px] z-50 w-[220px] rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_4px_0px_rgba(18,18,18,0.05),0px_2px_2px_0px_rgba(18,18,18,0.11)]">
+            {["Processed", "Deleted"].map((option) => <CheckboxMenuRow key={option} label={option} checked={statuses.includes(option)} onClick={() => {
+              setStatuses((current) => current.includes(option) ? current.filter((value) => value !== option) : [...current, option]);
+              setActiveViewName(null);
+            }} />)}
           </div>}
         </div>
+        {isFiltered && (
+          <div className="ml-[8px] flex items-center gap-[12px]">
+            <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={resetFilters}>Reset</ActionButton>
+            {!savedViews.some((view) => JSON.stringify({ ...view, name: "" }) === JSON.stringify(filterSnapshot())) && <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}
+          </div>
+        )}
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-[8px]">
-        {isFiltered && <><ActionButton variant="text" size="slim" onClick={resetFilters}>Reset</ActionButton>{!savedViews.some((view) => JSON.stringify({ ...view, name: "" }) === JSON.stringify(filterSnapshot())) && <ActionButton variant="primary" size="slim" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}</>}
-        <Tooltip text="Export CSV"><button type="button" aria-label="Export CSV" onClick={() => setToast("CSV file downloaded")} className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] hover:bg-[#f9f8f4]"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none"><path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button></Tooltip>
+      <div className="ml-auto flex shrink-0 items-center gap-[4px]">
+        <RefreshControl isRefreshing={isRefreshing} onRefresh={onRefresh} minutesSinceUpdate={minutesSinceUpdate} />
+        <Tooltip text="Export CSV"><button type="button" aria-label="Export CSV" onClick={() => setToast("CSV file downloaded")} className="flex size-[32px] items-center justify-center rounded-full transition-colors hover:bg-[#f4f3ef]"><img alt="" className="size-[16px]" src={imgExport} /></button></Tooltip>
       </div>
     </div>
     <div ref={transactionTableRef} onScroll={(event) => setIsTransactionTableScrolled(event.currentTarget.scrollLeft > 0)} className="min-h-0 w-full min-w-0 flex-1 overflow-auto rounded-t-[8px] border border-[#e3e2dd] bg-white">
       <table className="w-full min-w-[1710px] table-fixed border-collapse text-left">
-        <thead className="bg-[#f9f8f4] font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]"><tr className="h-[40px] border-b border-[#e3e2dd]">{columns.map((column, index) => <th key={column.key} className={`${column.width} ${index === 0 ? "pl-[16px] pr-[8px]" : "px-[8px]"} whitespace-nowrap py-[6px] font-medium ${index === 0 ? `sticky left-0 z-30 bg-[#f9f8f4] after:absolute after:bottom-0 after:right-[-1px] after:top-0 after:w-px after:transition-opacity after:content-[''] ${isTransactionTableScrolled ? "after:bg-[#e3e2dd] after:shadow-[2px_0_3px_rgba(34,32,31,0.08)] after:opacity-100" : "after:opacity-0"}` : ""} ${column.align ?? ""}`}><button type="button" aria-label={`Sort by ${column.label}${sort.key === column.key ? `, ${sort.direction === "asc" ? "ascending" : "descending"}` : ""}`} onClick={() => setSort((current) => ({ key: column.key, direction: current.key === column.key && current.direction === "asc" ? "desc" : "asc" }))} className={`inline-flex min-w-0 items-center gap-[4px] whitespace-nowrap ${column.align ? "w-full justify-end text-right" : "text-left"}`}><span>{column.label}</span><svg aria-hidden="true" className={`size-[14px] shrink-0 transition-transform ${sort.key === column.key ? "text-[#22201f]" : "text-[#85837e]"} ${sort.key === column.key && sort.direction === "desc" ? "rotate-180" : ""}`} viewBox="0 0 16 16" fill="none"><path d="M8 13V3m0 0L3.75 7.25M8 3l4.25 4.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button></th>)}</tr></thead>
+        <thead className="bg-[#f9f8f4] font-['Inter:Medium'] text-[#22201f] text-[14px] leading-[20px]"><tr className="h-[40px] border-b border-[#e3e2dd]">{columns.map((column, index) => <th key={column.key} className={`${column.width} ${index === 0 ? "pl-[16px] pr-[8px]" : "px-[8px]"} whitespace-nowrap py-[6px] font-medium ${index === 0 ? `sticky left-0 z-30 bg-[#f9f8f4] after:absolute after:bottom-0 after:right-[-1px] after:top-0 after:w-px after:transition-opacity after:content-[''] ${isTransactionTableScrolled ? "after:bg-[#e3e2dd] after:shadow-[2px_0_3px_rgba(34,32,31,0.08)] after:opacity-100" : "after:opacity-0"}` : ""} ${column.align ?? ""}`}><button type="button" aria-label={`Sort by ${column.label}${sort.key === column.key ? `, ${sort.direction === "asc" ? "ascending" : "descending"}` : ""}`} onClick={() => setSort((current) => ({ key: column.key, direction: current.key === column.key && current.direction === "asc" ? "desc" : "asc" }))} className={`inline-flex min-w-0 items-center gap-[4px] whitespace-nowrap ${column.align ? "w-full justify-end text-right" : "text-left"}`}><span>{column.label}</span><SortIcon isSorted={sort.key === column.key} direction={sort.direction} /></button></th>)}</tr></thead>
         <tbody className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]">{sortedRows.map((row) => <tr key={row.saleNumber} className={`h-[48px] border-b border-[#e3e2dd] last:border-b-0 ${row.deleted ? "bg-[#fff8ed] text-[#777671]" : ""}`}>{columns.map((column, index) => <td key={column.key} className={`${column.width} ${index === 0 ? "pl-[16px] pr-[8px]" : "px-[4px]"} whitespace-nowrap py-[6px] ${index === 0 ? `sticky left-0 z-20 after:absolute after:bottom-0 after:right-[-1px] after:top-0 after:w-px after:transition-opacity after:content-[''] ${isTransactionTableScrolled ? "after:bg-[#e3e2dd] after:shadow-[2px_0_3px_rgba(34,32,31,0.08)] after:opacity-100" : "after:opacity-0"} ${row.deleted ? "bg-[#fff8ed]" : "bg-white"}` : ""} ${column.align ?? ""}`}>{isRefreshing ? <Sk w="w-full" /> : column.key === "saleNumber" && row.deleted ? <span className="inline-flex items-center gap-[8px]">{row.saleNumber}<span className="rounded-[4px] bg-[#f2f0ea] px-[4px] py-[1px] font-['Inter:Medium'] text-[11px] leading-[16px] text-[#62615d]">Deleted</span></span> : String(row[column.key])}</td>)}</tr>)}</tbody>
         <tfoot className="bg-[#f9f8f4] font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]"><tr className="h-[48px]">{columns.map((column, index) => <td key={column.key} className={`${column.width} ${index === 0 ? "pl-[16px] pr-[8px]" : "px-[4px]"} sticky bottom-0 z-10 whitespace-nowrap bg-[#f9f8f4] py-[6px] shadow-[0_-1px_0_0_#e3e2dd] ${index === 0 ? `left-0 z-30 after:absolute after:bottom-0 after:right-[-1px] after:top-0 after:w-px after:transition-opacity after:content-[''] ${isTransactionTableScrolled ? "after:bg-[#e3e2dd] after:shadow-[2px_0_3px_rgba(34,32,31,0.08)] after:opacity-100" : "after:opacity-0"}` : ""} ${column.align ?? ""}`}>{index === 0 ? "Totals" : column.key === "tipAmount" ? formatTotal(totals.tipAmount) : column.key === "netAmount" ? formatTotal(totals.netAmount) : column.key === "taxAmount" ? formatTotal(totals.taxAmount) : column.key === "total" ? formatTotal(totals.total) : column.key === "surcharge" ? formatTotal(totals.surcharge) : ""}</td>)}</tr></tfoot>
       </table>
@@ -2636,6 +2980,7 @@ function TransactionsPage({
 }
 
 function ProductSalesPage({
+  requestedSavedViewName,
   initialSalesBy,
   selectedSiteIds,
   selectedSites,
@@ -2645,6 +2990,8 @@ function ProductSalesPage({
   compareSelected,
   taxSelected,
   isRefreshing,
+  minutesSinceUpdate,
+  onRefresh,
   onToggleSite,
   onApplyRegisters,
   onApplyLocationSnapshot,
@@ -2652,6 +2999,7 @@ function ProductSalesPage({
   onSelectCompare,
   onSelectTax,
 }: {
+  requestedSavedViewName: string | null;
   initialSalesBy: string | null;
   selectedSiteIds: string[];
   selectedSites: SiteOption[];
@@ -2661,6 +3009,8 @@ function ProductSalesPage({
   compareSelected: { id: string; label: string };
   taxSelected: string;
   isRefreshing: boolean;
+  minutesSinceUpdate: number;
+  onRefresh: () => void;
   onToggleSite: (id: string) => void;
   onApplyRegisters: (names: string[]) => void;
   onApplyLocationSnapshot: (sites: string[], registers: string[]) => void;
@@ -2677,7 +3027,6 @@ function ProductSalesPage({
   const [category, setCategory] = useState<string[]>(initialProductDefault?.categories ?? []);
   const [reportingGroup, setReportingGroup] = useState<string[]>(initialProductDefault?.reportingGroups ?? []);
   const [visibleFilters, setVisibleFilters] = useState<string[]>(initialProductDefault?.visibleFilters ?? []);
-  const [showSavedViews, setShowSavedViews] = useState(false);
   const [savedViews, setSavedViews] = useState<ProductSalesView[]>(initialProductStorage.savedViews.map((view) => ({ ...view, salesBy: normalizeSalesBy(view.salesBy) })));
   const [activeViewName, setActiveViewName] = useState<string | null>(initialProductDefault?.name ?? null);
   const [defaultView, setDefaultView] = useState<string | null>(initialProductStorage.defaultView);
@@ -2705,6 +3054,12 @@ function ProductSalesPage({
       onSelectTax("Inclusive");
     }
   }, []);
+
+  useEffect(() => {
+    if (!requestedSavedViewName) return;
+    const view = savedViews.find((savedView) => savedView.name === requestedSavedViewName);
+    if (view) applyView(view);
+  }, [requestedSavedViewName]);
   const dimensionLabel = salesBy === "Staff" ? "Staff member" : salesBy;
   const productRows: ProductSalesRow[] = PRODUCT_SALES_ROWS.map((row) => ({
     ...row,
@@ -2825,22 +3180,6 @@ function ProductSalesPage({
     onSelectCompare(view.compare.id, view.compare.label);
   }
 
-  function applyDefaultView() {
-    const view = savedViews.find((savedView) => savedView.name === defaultView);
-    if (!view) {
-      resetProductSalesFilters();
-      setActiveViewName("Default");
-      return;
-    }
-    applyView(view);
-    setActiveViewName(view.name);
-  }
-
-  function applySavedView(name: string) {
-    const view = savedViews.find((savedView) => savedView.name === name);
-    if (view) applyView(view);
-  }
-
   function captureView(name: string): ProductSalesView {
     return {
       name,
@@ -2858,15 +3197,16 @@ function ProductSalesPage({
   }
 
   function saveView(name: string) {
-    const view = captureView(name);
+    const view = { ...captureView(name), createdBy: CURRENT_CREATOR };
     setSavedViews((current) => [...current, view]);
     setActiveViewName(name);
+    setShowSaveModal(false);
   }
 
   function updateSavedView(name: string) {
-    const updatedView = captureView(name);
-    setSavedViews((current) => current.map((view) => view.name === name ? updatedView : view));
+    setSavedViews((current) => current.map((view) => view.name === name ? { ...captureView(name), createdBy: view.createdBy ?? CURRENT_CREATOR } : view));
     setActiveViewName(name);
+    setShowSaveModal(false);
   }
 
   const suggestedViewName = [
@@ -2883,18 +3223,6 @@ function ProductSalesPage({
       resetProductSalesFilters();
     }
     if (activeViewName === name) setActiveViewName(null);
-  }
-
-  function setProductSalesDefault(name: string) {
-    setDefaultView(name);
-    const view = savedViews.find((savedView) => savedView.name === name);
-    if (view) {
-      applyView(view);
-      setActiveViewName(view.name);
-    } else {
-      resetProductSalesFilters();
-      setActiveViewName("Default");
-    }
   }
 
   function renameSavedView(oldName: string, newName: string) {
@@ -2953,21 +3281,6 @@ function ProductSalesPage({
     <div className="flex w-full min-w-0 flex-col gap-[24px] p-[24px]">
       <div className="flex w-full flex-wrap items-start gap-[8px]">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
-          {savedViews.length > 0 && <>
-            <div className="relative">
-              <DefaultFilterChip label="View" value={activeViewName ?? "Default"} valueClassName={activeViewName ? "max-w-[120px]" : ""} onClick={() => setShowSavedViews((visible) => !visible)} />
-              {showSavedViews && <SavedFiltersMenu
-                savedFilters={savedViews}
-                defaultView={defaultView}
-                onClose={() => setShowSavedViews(false)}
-                onApplyDefault={applyDefaultView}
-                onApplyFilter={applySavedView}
-                onSetDefault={setProductSalesDefault}
-                onEditFilter={setEditingSavedViewName}
-              />}
-            </div>
-            <div aria-hidden="true" className="mx-[4px] h-[24px] w-px shrink-0 bg-[#e3e2dd]" />
-          </>}
           <div className="relative">
             <DefaultFilterChip label="Sales by" value={salesBy} onClick={() => toggleFilter("sales-by")} />
             {openFilter === "sales-by" && <OptionsDropdown options={["Product", "Site", "Category", "Reporting group", "Staff"]} selected={salesBy} onSelect={(value) => { setSalesBy(value); setActiveViewName(null); }} onClose={() => setOpenFilter(null)} width={180} />}
@@ -2984,7 +3297,7 @@ function ProductSalesPage({
             >
               <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">Date</span>
               <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{dateSelected.label}</span>
-              <span className="shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs</span>
+              <span className="-mx-[4px] shrink-0 font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">vs</span>
               <span className="min-w-0 truncate font-['Inter:Semibold'] text-[#22201f] text-[14px] leading-[20px]">{compareSelected.label}</span>
             </button>
             {openFilter === "date" && <DateComparisonDropdown dateId={dateSelected.id} compareId={compareSelected.id} onSelectDate={(id, label) => { setActiveViewName(null); onSelectDate(id, label); }} onSelectCompare={(id, label) => { setActiveViewName(null); onSelectCompare(id, label); }} onClose={() => setOpenFilter(null)} />}
@@ -3021,24 +3334,24 @@ function ProductSalesPage({
               onClose={() => setOpenFilter(null)}
             />}
           </div>
+          {isFilteredFromDefault && (
+            <div className="ml-[8px] flex items-center gap-[12px]">
+              <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={resetProductSalesFilters}>Reset</ActionButton>
+              <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>
+            </div>
+          )}
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-[8px]">
-          {isFilteredFromDefault && <>
-            <ActionButton variant="text" size="slim" onClick={resetProductSalesFilters}>Reset</ActionButton>
-            {!isSaved && <ActionButton variant="primary" size="slim" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}
-          </>}
+        <div className="ml-auto flex shrink-0 items-center gap-[4px]">
+          <RefreshControl isRefreshing={isRefreshing} onRefresh={onRefresh} minutesSinceUpdate={minutesSinceUpdate} />
           <Tooltip text="Export CSV">
             <button
               type="button"
               aria-label="Export CSV"
               onClick={() => setToast("CSV file downloaded")}
-              className="flex size-[32px] items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+              className="flex size-[32px] items-center justify-center rounded-full transition-colors hover:bg-[#f4f3ef]"
             >
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 32 32" fill="none">
-              <path d="M8.3 21.1a6.1 6.1 0 0 1 .75-12.15A8.1 8.1 0 0 1 24.7 11.1a5.4 5.4 0 0 1-.4 10.77" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M16 15v12m0 0 4.5-4.5M16 27l-4.5-4.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+              <img alt="" className="size-[16px]" src={imgExport} />
             </button>
           </Tooltip>
         </div>
@@ -3083,14 +3396,7 @@ function ProductSalesPage({
                       className={`inline-flex min-w-0 items-center gap-[4px] whitespace-normal ${column.className.includes("text-right") ? "w-full justify-end text-right" : "text-left"}`}
                     >
                       <span className="min-w-0">{column.label}</span>
-                      <svg
-                        aria-hidden="true"
-                        className={`size-[14px] shrink-0 transition-transform ${sort.key === column.key ? "text-[#22201f]" : "text-[#85837e]"} ${sort.key === column.key && sort.direction === "desc" ? "rotate-180" : ""}`}
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path d="M8 13V3m0 0L3.75 7.25M8 3l4.25 4.25" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      <SortIcon isSorted={sort.key === column.key} direction={sort.direction} />
                     </button>
                   </th>
                 ))}
