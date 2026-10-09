@@ -301,7 +301,7 @@ function OverviewV2DonutCard({ title, segments, isRefreshing }: { title: string;
             <span aria-hidden="true" className="size-[8px] shrink-0 rounded-full" style={{ backgroundColor: segment.color }} />
             <span className="min-w-0 flex-1 truncate text-[#22201f]">{segment.label}</span>
             <span className="shrink-0 font-['Inter:Medium'] text-[#22201f]">{segment.value}</span>
-            {segment.change && <span className={`shrink-0 rounded-[4px] px-[4px] font-['Inter:Medium'] ${segment.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{segment.change}</span>}
+            {segment.change && <span className={`shrink-0 font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${segment.positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{segment.change}</span>}
           </div>
         ))}
       </div>
@@ -309,19 +309,19 @@ function OverviewV2DonutCard({ title, segments, isRefreshing }: { title: string;
   );
 }
 
-function OverviewV2RankedCard({ title, headline, detail, trend, rows, onSeeMore }: { title: string; headline: string; detail: string; trend: string; rows: Array<{ name: string; value: string; change: string; positive: boolean }>; onSeeMore: () => void }) {
+function OverviewV2RankedCard({ title, headline, detail, trend, rows, compareLabel, showComparison, onSeeMore }: { title: string; headline: string; detail: string; trend: string; rows: Array<{ name: string; value: string; change: string; positive: boolean }>; compareLabel: string; showComparison: boolean; onSeeMore: () => void }) {
   return (
     <section className="flex min-w-0 flex-1 flex-col rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
       <div className="mb-[12px] flex items-center gap-[8px]">
         <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">{title}</h3>
-        <MetricMoreMenu onExportPng={() => {}} onViewMethodology={() => {}} />
         <InfoIcon tooltip={title} />
       </div>
       <div className="mb-[12px]">
         <p className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">{headline}</p>
         <div className="mt-[2px] flex items-center gap-[6px] text-[14px] leading-[20px] text-[#62615d]">
           <span>{detail}</span>
-          <span className={`rounded-[4px] px-[4px] font-['Inter:Medium'] ${trend.startsWith("+") ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{trend}</span>
+          <span className={`font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${trend.startsWith("+") ? "text-[#008e13]" : "text-[#8e1311]"}`}>{trend}</span>
+          {showComparison && <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">vs {lowercaseFirstLetter(compareLabel)}</span>}
         </div>
       </div>
       <div className="flex flex-col">
@@ -329,7 +329,7 @@ function OverviewV2RankedCard({ title, headline, detail, trend, rows, onSeeMore 
           <div key={row.name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[6px] border-b border-[#e3e2dd] px-[6px] last:border-b-0">
             <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{row.name}</span>
             <span className="w-[48px] shrink-0 text-right font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{row.value}</span>
-            <span className={`shrink-0 rounded-[4px] px-[4px] font-['Inter:Medium'] text-[14px] leading-[20px] ${row.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{row.change}</span>
+            <span className={`w-[56px] shrink-0 text-right font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${row.positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{row.change}</span>
           </div>
         ))}
       </div>
@@ -366,7 +366,10 @@ function OverviewV2Dashboard({ isRefreshing, compareLabel, showComparison, selec
             </div>
             <div className="flex min-w-0 flex-col items-start gap-[4px]">
               <span className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">{isRefreshing ? <Sk w="w-[72px]" /> : kpi.value}</span>
-              <span className={`rounded-[4px] px-[5px] font-['Inter:Medium'] text-[14px] leading-[20px] ${kpi.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{kpi.change}</span>
+              {showComparison && <div className="flex items-center gap-[6px]">
+                <span className={`font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${kpi.positive ? "text-[#008e13]" : "text-[#8e1311]"}`}>{kpi.change}</span>
+                <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">vs {lowercaseFirstLetter(compareLabel)}</span>
+              </div>}
             </div>
           </section>
         ))}
@@ -388,22 +391,30 @@ function OverviewV2Dashboard({ isRefreshing, compareLabel, showComparison, selec
       </div>
 
       <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
-        {topCards.map((card) => <OverviewV2RankedCard key={card.title} {...card} onSeeMore={() => selectProductSales(card.dimension)} />)}
+        {topCards.map((card) => <OverviewV2RankedCard key={card.title} {...card} compareLabel={compareLabel} showComparison={showComparison} onSeeMore={() => selectProductSales(card.dimension)} />)}
       </div>
 
       <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-2 sm:gap-[12px]">
         {tables.map((table) => (
           <section key={table.title} className="min-w-0 rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-            <div className="mb-[8px] flex items-center gap-[8px]">
+            <div className="mb-[12px] flex items-center gap-[8px]">
               <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">{table.title}</h3>
               <InfoIcon tooltip={table.title} />
+            </div>
+            <div className="mb-[12px]">
+              <p className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">{table.rows[0][0]}</p>
+              <div className="mt-[2px] flex flex-wrap items-center gap-[6px] text-[14px] leading-[20px]">
+                <span className="font-['Inter:Semibold'] text-[#22201f]">{table.rows[0][1]}</span>
+                {table.rows[0][2] !== "—" && <span className={`font-['Inter:Semibold'] font-semibold ${table.rows[0][2].startsWith("+") ? "text-[#008e13]" : "text-[#8e1311]"}`}>{table.rows[0][2]}</span>}
+                {showComparison && <span className="font-['Inter:Regular'] text-[#62615d]">vs {lowercaseFirstLetter(compareLabel)}</span>}
+              </div>
             </div>
             <div className="flex flex-col">
               {table.rows.map(([name, value, change]) => (
                 <div key={name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0">
                   <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{name}</span>
                   <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{value}</span>
-                  <span className={`w-[56px] shrink-0 rounded-[4px] px-[4px] text-center font-['Inter:Medium'] text-[14px] leading-[20px] ${change.startsWith("+") ? "bg-[#d8fcdc] text-[#0d6b27]" : change === "—" ? "text-[#62615d]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{change}</span>
+                  <span className={`w-[56px] shrink-0 text-center font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${change.startsWith("+") ? "text-[#008e13]" : change === "—" ? "text-[#62615d]" : "text-[#8e1311]"}`}>{change}</span>
                 </div>
               ))}
             </div>
