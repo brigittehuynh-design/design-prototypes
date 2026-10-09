@@ -35,8 +35,8 @@ const imgDivider = `${assetPathPrefix}/973a3.svg`;
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-type ReportName = "All reports" | "My reports" | "Overview" | "Product sales" | "Transactions";
-type SavedReportKind = Exclude<ReportName, "All reports" | "My reports">;
+type ReportName = "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports" | "Overview" | "Product sales" | "Transactions";
+type SavedReportKind = Exclude<ReportName, "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports">;
 type SavedViewSummary = { name: string; createdBy?: string };
 type SavedViewHeaderActions = { rename: () => void; delete: () => void };
 
@@ -49,6 +49,7 @@ type DirectoryReport = {
   viewName?: string;
   createdBy?: string;
   createdAt?: number;
+  sharedWithTeam?: boolean;
 };
 
 const REPORT_DESCRIPTION = "See report on sales by product, category, site, reporting groups, and more.";
@@ -59,45 +60,82 @@ function buildSmartReportDescription(report: string, filters: string[]) {
 }
 
 const reportDirectoryItems: DirectoryReport[] = [
-  { id: "preset:transactions", title: "Transactions", description: REPORT_DESCRIPTION, category: "Transactions", report: "Transactions" },
+  { id: "preset:transactions", title: "Sales feed", description: REPORT_DESCRIPTION, category: "Sales", report: "Transactions" },
   { id: "preset:product-sales", title: "Product sales", description: REPORT_DESCRIPTION, category: "Sales", report: "Product sales" },
+  { id: "preset:hourly-sales", title: "Hourly sales", description: REPORT_DESCRIPTION, category: "Sales", report: "Overview" },
+  { id: "preset:daily-sales", title: "Daily sales", description: REPORT_DESCRIPTION, category: "Sales", report: "Overview" },
+  { id: "preset:site-comparison", title: "Site comparison", description: REPORT_DESCRIPTION, category: "Sales", report: "Overview" },
 ];
 
-function ReportsLanding({ page, onSelectReport }: { page: "All reports" | "My reports"; onSelectReport: (report: DirectoryReport, source: "All reports" | "My reports") => void }) {
-  const [category, setCategory] = useState("All");
+function ReportsLanding({ page, onSelectPage, onSelectReport, favouriteIds, onToggleFavourite, onFavouriteSuccess }: { page: "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports"; onSelectPage: (page: "Lightspeed reports" | "Shared reports" | "My reports" | "All reports") => void; onSelectReport: (report: DirectoryReport, source: "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports") => void; favouriteIds: string[]; onToggleFavourite: (report: DirectoryReport) => void; onFavouriteSuccess: (report: DirectoryReport) => void }) {
   const [creator, setCreator] = useState("Anyone");
   const [openFilter, setOpenFilter] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState(page === "My reports" ? "Date created" : "Popular");
-  useEffect(() => setSortBy(page === "My reports" ? "Date created" : "Popular"), [page]);
+  const [sortBy, setSortBy] = useState("First added");
+  const [heartBurst, setHeartBurst] = useState<{ reportId: string; token: number } | null>(null);
+  const heartBurstToken = useRef(0);
+  useEffect(() => setSortBy("First added"), [page]);
+  useEffect(() => {
+    if (!heartBurst) return;
+    const timeout = window.setTimeout(() => setHeartBurst(null), 900);
+    return () => window.clearTimeout(timeout);
+  }, [heartBurst]);
   const savedReports: DirectoryReport[] = [
-    ...loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" }).savedFilters.filter((view) => view.createdBy).map((view) => ({ id: `saved:Overview:${view.name}`, title: view.name, description: view.description ?? "", category: "Sales", report: "Overview" as const, viewName: view.name, createdBy: view.createdBy, createdAt: view.createdAt })),
-    ...loadStoredValue<ProductSalesStorage>(PRODUCT_SALES_STORAGE_KEY, { savedViews: [], defaultView: "__system__" }).savedViews.filter((view) => view.createdBy).map((view) => ({ id: `saved:Product sales:${view.name}`, title: view.name, description: view.description ?? "", category: "Sales", report: "Product sales" as const, viewName: view.name, createdBy: view.createdBy, createdAt: view.createdAt })),
-    ...loadStoredValue<TransactionsStorage>(TRANSACTIONS_STORAGE_KEY, { savedViews: [], defaultView: "__system__" }).savedViews.filter((view) => view.createdBy).map((view) => ({ id: `saved:Transactions:${view.name}`, title: view.name, description: view.description ?? "", category: "Transactions", report: "Transactions" as const, viewName: view.name, createdBy: view.createdBy, createdAt: view.createdAt })),
+    ...loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" }).savedFilters.filter((view) => view.createdBy).map((view) => ({ id: `saved:Overview:${view.name}`, title: view.name, description: view.description ?? "", category: "Sales", report: "Overview" as const, viewName: view.name, createdBy: view.createdBy, createdAt: view.createdAt, sharedWithTeam: view.sharedWithTeam })),
+    ...loadStoredValue<ProductSalesStorage>(PRODUCT_SALES_STORAGE_KEY, { savedViews: [], defaultView: "__system__" }).savedViews.filter((view) => view.createdBy).map((view) => ({ id: `saved:Product sales:${view.name}`, title: view.name, description: view.description ?? "", category: "Sales", report: "Product sales" as const, viewName: view.name, createdBy: view.createdBy, createdAt: view.createdAt, sharedWithTeam: view.sharedWithTeam })),
+    ...loadStoredValue<TransactionsStorage>(TRANSACTIONS_STORAGE_KEY, { savedViews: [], defaultView: "__system__" }).savedViews.filter((view) => view.createdBy).map((view) => ({ id: `saved:Transactions:${view.name}`, title: view.name, description: view.description ?? "", category: "Sales", report: "Transactions" as const, viewName: view.name, createdBy: view.createdBy, createdAt: view.createdAt, sharedWithTeam: view.sharedWithTeam })),
   ];
-  const reports = page === "My reports" ? savedReports : reportDirectoryItems;
+  const allReports = [...reportDirectoryItems, ...savedReports];
+  const reports = page === "Favourites"
+    ? allReports.filter((report) => favouriteIds.includes(report.id))
+    : page === "Lightspeed reports"
+      ? reportDirectoryItems
+      : page === "Shared reports"
+      ? savedReports.filter((report) => report.sharedWithTeam || report.createdBy !== CURRENT_CREATOR)
+      : page === "My reports"
+        ? savedReports.filter((report) => report.createdBy === CURRENT_CREATOR)
+        : allReports;
   const creators = [...new Set(reports.map((report) => report.createdBy).filter((name): name is string => !!name))];
-  const visibleReports = reports.filter((report) =>
-    (category === "All" || report.category === category) &&
-    (creator === "Anyone" || report.createdBy === creator)
-  );
-  const sortedReports = sortBy === "Popular"
-    ? visibleReports
-    : [...visibleReports].sort((a, b) => {
-      if (sortBy === "Date created") return (b.createdAt ?? 0) - (a.createdAt ?? 0);
-      return sortBy === "A-Z" ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
-    });
+  const visibleReports = reports.filter((report) => creator === "Anyone" || report.createdBy === creator);
+  const sortedReports = sortBy === "First added" || sortBy === "Last added"
+    ? [...visibleReports].sort((a, b) => {
+      const aIsSaved = a.id.startsWith("saved:");
+      const bIsSaved = b.id.startsWith("saved:");
+      if (page === "All reports" && sortBy === "First added" && aIsSaved !== bIsSaved) return Number(aIsSaved) - Number(bIsSaved);
+      const order = (a.createdAt ?? 0) - (b.createdAt ?? 0);
+      return sortBy === "First added" ? order : -order;
+    })
+    : [...visibleReports].sort((a, b) => sortBy === "A-Z" ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title));
   const matchingReports = sortedReports;
 
   function ReportRows({ reports }: { reports: DirectoryReport[] }) {
     return reports.map((report, index) => (
       <div
         key={report.id}
-        className={`group flex w-full items-center gap-[12px] border-t border-[#e3e2dd] p-[16px] transition-colors hover:bg-[#f9f8f4] ${index === 0 ? "border-t-0" : ""}`}
+        className={`group flex min-h-[80px] w-full items-center gap-[12px] border-t border-[#e3e2dd] px-[16px] py-[12px] transition-colors hover:bg-[#f9f8f4] ${index === 0 ? "border-t-0" : ""}`}
       >
-        <button type="button" onClick={() => onSelectReport(report, page)} className="flex min-w-0 flex-1 flex-col gap-[2px] text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1e72c4]">
+        <button type="button" onClick={() => onSelectReport(report, page)} className="flex min-h-[48px] min-w-0 flex-1 flex-col justify-center gap-[2px] text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1e72c4]">
           <span className="font-['Inter:Semibold'] text-[15px] leading-[22px] text-[#22201f]">{report.title}</span>
           {report.description && <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">{report.description}</span>}
         </button>
+        {report.createdBy && <span className="shrink-0 font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">Added by {report.createdBy.trim().split(/\s+/).length > 1 ? `${report.createdBy.trim().split(/\s+/)[0]} ${report.createdBy.trim().split(/\s+/).at(-1)?.[0]}.` : report.createdBy}</span>}
+        <span className="relative flex size-[32px] shrink-0 items-center justify-center">
+          {heartBurst?.reportId === report.id && <span key={heartBurst.token} aria-hidden="true" className="pointer-events-none absolute inset-0">
+            {[0, 1, 2].map((heart) => <svg key={heart} className={`favourite-heart-float favourite-heart-float-${heart + 1}`} viewBox="0 0 16 16" fill="currentColor"><path d="M8 13.25S2.5 9.9 2.5 5.85a2.85 2.85 0 0 1 5.5-1.1 2.85 2.85 0 0 1 5.5 1.1C13.5 9.9 8 13.25 8 13.25Z" /></svg>)}
+          </span>}
+          <button type="button" aria-label={`${favouriteIds.includes(report.id) ? "Remove" : "Add"} ${report.title} ${favouriteIds.includes(report.id) ? "from" : "to"} favourites`} aria-pressed={favouriteIds.includes(report.id)} onClick={() => {
+            const isFavourited = favouriteIds.includes(report.id);
+            if (!isFavourited) {
+              heartBurstToken.current += 1;
+              setHeartBurst({ reportId: report.id, token: heartBurstToken.current });
+            }
+            onToggleFavourite(report);
+            if (!isFavourited) onFavouriteSuccess(report);
+          }} className="relative z-10 flex size-[32px] items-center justify-center rounded-full text-[#777671] transition-colors hover:bg-[#edeae4] hover:text-[#22201f] focus-visible:outline-2 focus-visible:outline-[#1e72c4]">
+            <svg aria-hidden="true" className={`size-[16px] ${favouriteIds.includes(report.id) && heartBurst?.reportId === report.id ? "favourite-heart-pop" : ""}`} viewBox="0 0 16 16" fill={favouriteIds.includes(report.id) ? "#d74444" : "none"}>
+              <path d="M8 13.25S2.5 9.9 2.5 5.85a2.85 2.85 0 0 1 5.5-1.1 2.85 2.85 0 0 1 5.5 1.1C13.5 9.9 8 13.25 8 13.25Z" stroke={favouriteIds.includes(report.id) ? "#d74444" : "currentColor"} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </span>
       </div>
     ));
   }
@@ -105,23 +143,31 @@ function ReportsLanding({ page, onSelectReport }: { page: "All reports" | "My re
   return (
     <div className="h-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto flex w-full max-w-[920px] flex-col gap-[24px] px-[20px] py-[24px] sm:px-[24px]">
-        <div className="flex flex-wrap items-center gap-[8px]">
-          <div className="relative">
-            <DefaultFilterChip label="Category" value={category} onClick={() => setOpenFilter((current) => current === "category" ? null : "category")} />
-            {openFilter === "category" && <OptionsDropdown options={["All", "Sales", "Transactions"]} selected={category} onSelect={setCategory} onClose={() => setOpenFilter(null)} width={180} />}
-          </div>
-          {page === "All reports" && <div className="relative">
-            <DefaultFilterChip label="Created by" value={creator} onClick={() => setOpenFilter((current) => current === "creator" ? null : "creator")} />
-            {openFilter === "creator" && <OptionsDropdown options={["Anyone", ...creators]} selected={creator} onSelect={setCreator} onClose={() => setOpenFilter(null)} width={180} />}
+        {page !== "Favourites" && <div aria-label="Report collection" className="flex h-[40px] w-fit max-w-full shrink-0 overflow-x-auto rounded-[8px] bg-[#edeae4] p-[4px]" role="group">
+          {([["Lightspeed reports", "Lightspeed"], ["Shared reports", "Shared"], ["My reports", "My reports"], ["All reports", "All reports"]] as const).map(([option, label]) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={page === option}
+              onClick={() => onSelectPage(option)}
+              className={`flex h-[32px] w-[96px] shrink-0 items-center justify-center whitespace-nowrap rounded-[4px] border px-[12px] font-['Inter:Semibold'] text-[14px] leading-[20px] transition-colors ${page === option ? "border-[#e3e2dd] bg-white text-[#22201f]" : "border-transparent text-[#22201f] hover:bg-[#f4f2ed]"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>}
+        <section aria-label="Reports list" className="overflow-visible rounded-[12px] border border-[#e3e2dd] p-[16px]">
+          {page !== "Lightspeed reports" && <div className="flex flex-wrap items-center gap-[8px] pb-[16px]">
+            {page !== "My reports" && <div className="relative">
+              <DefaultFilterChip label="Created by" value={creator} onClick={() => setOpenFilter((current) => current === "creator" ? null : "creator")} />
+              {openFilter === "creator" && <OptionsDropdown options={["Anyone", ...creators]} selected={creator} onSelect={setCreator} onClose={() => setOpenFilter(null)} width={180} />}
+            </div>}
+            <div className={`relative ${page === "My reports" ? "" : "ml-auto"}`}>
+              <DefaultFilterChip label="Sort by" value={sortBy} onClick={() => setOpenFilter((current) => current === "sort" ? null : "sort")} />
+              {openFilter === "sort" && <OptionsDropdown options={["First added", "Last added", "A-Z", "Z-A"]} selected={sortBy} onSelect={setSortBy} onClose={() => setOpenFilter(null)} width={160} />}
+            </div>
           </div>}
-          <div className="relative ml-auto">
-            <DefaultFilterChip label="Sort by" value={sortBy} onClick={() => setOpenFilter((current) => current === "sort" ? null : "sort")} />
-            {openFilter === "sort" && <OptionsDropdown options={page === "My reports" ? ["Date created", "A-Z", "Z-A"] : ["Popular", "A-Z", "Z-A"]} selected={sortBy} onSelect={setSortBy} onClose={() => setOpenFilter(null)} width={160} />}
-          </div>
-        </div>
-
-        <section aria-label="Reports list" className="rounded-[12px] border border-[#e3e2dd] p-[16px]">
-          {matchingReports.length > 0 ? <ReportRows reports={matchingReports} /> : <p className={`px-[16px] py-[20px] text-center text-[14px] leading-[20px] text-[#62615d] ${page === "My reports" && savedReports.length === 0 ? "" : "border-t border-[#e3e2dd]"}`}>{page === "My reports" && savedReports.length === 0 ? "Saved views from your reports will appear here." : "No reports match these filters."}</p>}
+          {matchingReports.length > 0 ? <ReportRows reports={matchingReports} /> : <p className="px-[16px] py-[20px] text-center text-[14px] leading-[20px] text-[#62615d]">{page === "Favourites" && favouriteIds.length === 0 ? "Reports you favourite will appear here." : page === "Shared reports" ? "Reports shared with you will appear here." : page === "My reports" ? "Reports you create will appear here." : "No reports match these filters."}</p>}
         </section>
       </div>
     </div>
@@ -280,7 +326,7 @@ function OverviewV2RankedCard({ title, headline, detail, trend, rows, onSeeMore 
       </div>
       <div className="flex flex-col">
         {rows.map((row) => (
-          <div key={row.name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[6px] px-[6px] odd:bg-[#f9f8f4]">
+          <div key={row.name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[6px] border-b border-[#e3e2dd] px-[6px] last:border-b-0">
             <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{row.name}</span>
             <span className="w-[48px] shrink-0 text-right font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{row.value}</span>
             <span className={`shrink-0 rounded-[4px] px-[4px] font-['Inter:Medium'] text-[14px] leading-[20px] ${row.positive ? "bg-[#d8fcdc] text-[#0d6b27]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{row.change}</span>
@@ -354,7 +400,7 @@ function OverviewV2Dashboard({ isRefreshing, compareLabel, showComparison, selec
             </div>
             <div className="flex flex-col">
               {table.rows.map(([name, value, change]) => (
-                <div key={name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] px-[6px] odd:bg-[#f9f8f4]">
+                <div key={name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0">
                   <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{name}</span>
                   <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{value}</span>
                   <span className={`w-[56px] shrink-0 rounded-[4px] px-[4px] text-center font-['Inter:Medium'] text-[14px] leading-[20px] ${change.startsWith("+") ? "bg-[#d8fcdc] text-[#0d6b27]" : change === "—" ? "text-[#62615d]" : "bg-[#ffedd4] text-[#7a4100]"}`}>{change}</span>
@@ -374,7 +420,7 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
     <div className="flex flex-col gap-[12px] h-screen items-start p-[8px] shrink-0 w-[200px] bg-[#f9f8f4] sticky top-0">
       {/* Back Office header */}
       <a href={import.meta.env.BASE_URL} className="flex gap-[4px] items-center p-[8px] rounded-[8px] w-full hover:bg-[#f2f0ea]">
-        <span className="font-['Inter:Semibold'] text-[#22201f] text-[16px] leading-[24px] whitespace-nowrap">Back Office</span>
+        <span className="font-['Inter:Semibold'] text-[#22201f] text-[16px] leading-[24px] whitespace-nowrap">All prototypes</span>
         <img alt="" className="block size-[16px]" src={imgArrowRight} />
       </a>
 
@@ -387,7 +433,7 @@ function Sidebar({ activeReport, onSelectReport }: { activeReport: ReportName; o
         <div className="flex flex-col gap-[4px] items-start w-full shrink-0">
           <NavItem icon={imgGraph} label="Reports" hasArrow />
           <div className="flex flex-col gap-[4px] items-start w-full pl-[24px]">
-            {([["Overview", "Overview"], ["All reports", "All reports"], ["My reports", "My reports"]] as const).map(([label, report]) => (
+            {([["Overview", "Overview"], ["All reports", "All reports"], ["Favourites", "Favourites"]] as const).map(([label, report]) => (
               <React.Fragment key={report}>
                 <button
                   type="button"
@@ -529,6 +575,7 @@ type ProductSalesView = {
   createdBy?: string;
   createdAt?: number;
   description?: string;
+  sharedWithTeam?: boolean;
 };
 
 type SalesOverviewView = {
@@ -541,6 +588,7 @@ type SalesOverviewView = {
   createdBy?: string;
   createdAt?: number;
   description?: string;
+  sharedWithTeam?: boolean;
 };
 
 type ProductSalesStorage = {
@@ -564,6 +612,7 @@ type TransactionView = {
   createdBy?: string;
   createdAt?: number;
   description?: string;
+  sharedWithTeam?: boolean;
 };
 
 type TransactionsStorage = {
@@ -1656,30 +1705,40 @@ function SaveViewModal({
   suggestedDescription,
   initialMode = "new",
   initialExistingName,
+  initialSharedWithTeam = false,
+  sharedExistingFilters = [],
 }: {
   onClose: () => void;
-  onSave: (name: string, description: string) => void;
-  onUpdate: (name: string) => void;
+  onSave: (name: string, description: string, sharedWithTeam: boolean) => void;
+  onUpdate: (name: string, sharedWithTeam: boolean) => void;
   existingFilters: string[];
   hasExisting: boolean;
   suggestedName: string;
   suggestedDescription: string;
   initialMode?: "existing" | "new";
   initialExistingName?: string | null;
+  initialSharedWithTeam?: boolean;
+  sharedExistingFilters?: string[];
 }) {
   const [mode, setMode] = useState<"existing" | "new">(initialMode);
   const [selectedExisting, setSelectedExisting] = useState(initialExistingName && existingFilters.includes(initialExistingName) ? initialExistingName : existingFilters[0] ?? "");
   const [newName, setNewName] = useState(suggestedName);
-  const [description, setDescription] = useState(suggestedDescription);
+  const [description, setDescription] = useState("Custom report");
+  const [sharedWithTeam, setSharedWithTeam] = useState(initialSharedWithTeam);
+
+  function chooseMode(nextMode: "existing" | "new") {
+    setMode(nextMode);
+    setSharedWithTeam(nextMode === "existing" && sharedExistingFilters.includes(selectedExisting));
+  }
 
   const canSave = mode === "existing" ? !!selectedExisting : !!newName.trim();
 
   function handleSave() {
     if (!canSave) return;
     if (mode === "existing") {
-      onUpdate(selectedExisting);
+      onUpdate(selectedExisting, sharedWithTeam);
     } else {
-      onSave(newName.trim(), description.trim());
+      onSave(newName.trim(), description.trim(), sharedWithTeam);
     }
     onClose();
   }
@@ -1693,7 +1752,7 @@ function SaveViewModal({
         {/* Heading */}
         <div className="flex flex-col gap-[4px]">
           <div className="flex gap-[16px] items-start">
-            <p className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[32px] flex-1 min-w-0">Save view</p>
+            <p className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[32px] flex-1 min-w-0">Save report</p>
             <button onClick={onClose} className="shrink-0 size-[16px] mt-[8px] hover:opacity-70 transition-opacity">
               <img alt="Close" className="block size-full" src={imgModalClose} />
             </button>
@@ -1709,18 +1768,21 @@ function SaveViewModal({
             <label className="flex items-center gap-[10px] cursor-pointer">
               <div
                 className={`size-[16px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${mode === "existing" ? "border-[#1e72c4]" : "border-[#bbbab6]"}`}
-                onClick={() => setMode("existing")}
+                onClick={() => chooseMode("existing")}
               >
                 {mode === "existing" && <div className="size-[8px] rounded-full bg-[#1e72c4]" />}
               </div>
-              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("existing")}>Update existing view</span>
+              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => chooseMode("existing")}>Update existing report</span>
             </label>
             {mode === "existing" && (
               <div className="relative ml-[26px] w-[calc(100%-26px)]">
                 <select
                   className="block appearance-none bg-white border border-[#bbbab6] rounded-[8px] h-[40px] pl-[12px] pr-[36px] font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[24px] w-full outline-none focus:border-[#1e72c4]"
                   value={selectedExisting}
-                  onChange={(e) => setSelectedExisting(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedExisting(e.target.value);
+                    setSharedWithTeam(sharedExistingFilters.includes(e.target.value));
+                  }}
                 >
                   {existingFilters.map((f) => (
                     <option key={f} value={f}>{f}</option>
@@ -1734,11 +1796,11 @@ function SaveViewModal({
             <label className="flex items-center gap-[10px] cursor-pointer">
               <div
                 className={`size-[16px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${mode === "new" ? "border-[#1e72c4]" : "border-[#bbbab6]"}`}
-                onClick={() => setMode("new")}
+                onClick={() => chooseMode("new")}
               >
                 {mode === "new" && <div className="size-[8px] rounded-full bg-[#1e72c4]" />}
               </div>
-              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => setMode("new")}>Save new view</span>
+              <span className="font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px]" onClick={() => chooseMode("new")}>Save new report</span>
             </label>
             {mode === "new" && (
               <div className="flex flex-col gap-[4px] ml-[26px]" style={{ width: "calc(100% - 26px)" }}>
@@ -1786,6 +1848,11 @@ function SaveViewModal({
             </label>
           </div>
         )}
+
+        <label className="flex cursor-pointer items-center gap-[10px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#22201f]">
+          <input type="checkbox" checked={sharedWithTeam} onChange={(event) => setSharedWithTeam(event.target.checked)} className="size-[16px] accent-[#1e72c4]" />
+          Share report with team
+        </label>
 
         {/* Save button */}
         <ActionButton
@@ -1904,21 +1971,24 @@ function SavedFiltersMenu({
 function EditSavedViewModal({
   name,
   description,
+  sharedWithTeam = false,
   existingNames,
   onClose,
   onSave,
 }: {
   name: string;
   description: string;
+  sharedWithTeam?: boolean;
   existingNames: string[];
   onClose: () => void;
-  onSave: (name: string, description: string) => void;
+  onSave: (name: string, description: string, sharedWithTeam: boolean) => void;
 }) {
   const [newName, setNewName] = useState(name);
   const [newDescription, setNewDescription] = useState(description);
+  const [isSharedWithTeam, setIsSharedWithTeam] = useState(sharedWithTeam);
   const trimmedName = newName.trim();
   const canRename = trimmedName.length > 0 && (trimmedName === name || !existingNames.includes(trimmedName));
-  const saveChanges = () => onSave(trimmedName, newDescription.trim());
+  const saveChanges = () => onSave(trimmedName, newDescription.trim(), isSharedWithTeam);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(70,74,81,0.6)] p-[16px]" onClick={onClose}>
@@ -1931,7 +2001,7 @@ function EditSavedViewModal({
       >
         <div>
           <div className="flex items-start gap-[16px]">
-            <h2 id="edit-saved-view-title" className="min-w-0 flex-1 font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[28px]">Settings</h2>
+            <h2 id="edit-saved-view-title" className="min-w-0 flex-1 font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[28px]">Report settings</h2>
             <button type="button" onClick={onClose} aria-label="Close" className="mt-[4px] size-[16px] shrink-0 hover:opacity-70">
               <img alt="" className="block size-full" src={imgModalClose} />
             </button>
@@ -1959,10 +2029,14 @@ function EditSavedViewModal({
               className="w-full resize-y rounded-[8px] border border-[#bbbab6] bg-white px-[12px] py-[10px] font-['Inter:Regular'] text-[14px] leading-[20px] outline-none focus:border-[#1e72c4] focus:ring-1 focus:ring-[#1e72c4]"
             />
           </label>
+          <label className="flex cursor-pointer items-center gap-[10px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#22201f]">
+            <input type="checkbox" checked={isSharedWithTeam} onChange={(event) => setIsSharedWithTeam(event.target.checked)} className="size-[16px] accent-[#1e72c4]" />
+            Share with company
+          </label>
         </div>
 
         <div className="flex">
-          <ActionButton variant="primary" className="w-full" onClick={saveChanges} disabled={!canRename}>Save name</ActionButton>
+          <ActionButton variant="primary" className="w-full" onClick={saveChanges} disabled={!canRename}>Save changes</ActionButton>
         </div>
       </div>
     </div>
@@ -2088,10 +2162,20 @@ export default function VersionThreeB() {
 function ReportsPrototype() {
   const initialSalesStorage = loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, { savedFilters: [], defaultView: "__system__" });
   const initialSalesDefault = initialSalesStorage.savedFilters.find((view) => view.name === initialSalesStorage.defaultView);
+  const [favouriteReportIds, setFavouriteReportIds] = useState<string[]>(() => {
+    try {
+      const stored = window.sessionStorage.getItem("reports-bo:version-3b:favourites");
+      return stored ? JSON.parse(stored) as string[] : [];
+    } catch {
+      return [];
+    }
+  });
   const [activeReport, setActiveReport] = useState<ReportName>("Overview");
-  const [activeReportsNavigation, setActiveReportsNavigation] = useState<"All reports" | "My reports" | null>(null);
+  const [activeReportsNavigation, setActiveReportsNavigation] = useState<"All reports" | null>(null);
+  const [reportReturnPage, setReportReturnPage] = useState<"All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports">("All reports");
   const [productSalesEntryDimension, setProductSalesEntryDimension] = useState<string | null>(null);
   const [requestedSavedViewName, setRequestedSavedViewName] = useState<string | null>(null);
+  const [selectedDirectoryReport, setSelectedDirectoryReport] = useState<DirectoryReport | null>(null);
   const [showSavedViewMenu, setShowSavedViewMenu] = useState(false);
   const savedViewMenuRef = useRef<HTMLDivElement>(null);
   const savedViewHeaderActions = useRef<SavedViewHeaderActions | null>(null);
@@ -2202,15 +2286,56 @@ function ReportsPrototype() {
     setActiveReportsNavigation(null);
     savedViewHeaderActions.current = null;
     setRequestedSavedViewName(null);
+    setSelectedDirectoryReport(null);
     setActiveReport(report);
     if (report === "Overview") {
       applyDefaultView();
     }
   }
 
-  function selectDirectoryReport(report: DirectoryReport, source: "All reports" | "My reports") {
+  function selectSidebarReport(report: ReportName) {
+    if (report === "All reports") {
+      selectReport("Lightspeed reports");
+      setActiveReportsNavigation("All reports");
+      return;
+    }
+    selectReport(report);
+  }
+
+  function selectReportsTab(page: "Lightspeed reports" | "Shared reports" | "My reports" | "All reports") {
+    selectReport(page);
+    setActiveReportsNavigation("All reports");
+  }
+
+  function toggleReportFavourite(report: DirectoryReport) {
+    const isFavourited = favouriteReportIds.includes(report.id);
+    const next = isFavourited ? favouriteReportIds.filter((id) => id !== report.id) : [...favouriteReportIds, report.id];
+    setFavouriteReportIds(next);
+    try {
+      window.sessionStorage.setItem("reports-bo:version-3b:favourites", JSON.stringify(next));
+    } catch {
+      // Favourites remain available for the current render if session storage is unavailable.
+    }
+  }
+
+  function showFavouriteSuccess(report: DirectoryReport) {
+    setToast({
+      message: `"${report.title}" added to Favourites.`,
+      actionLabel: "Go to favourites",
+      onAction: () => {
+        setActiveReport("Favourites");
+        setActiveReportsNavigation(null);
+        setRequestedSavedViewName(null);
+        setSelectedDirectoryReport(null);
+      },
+    });
+  }
+
+  function selectDirectoryReport(report: DirectoryReport, source: "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports") {
+    setReportReturnPage(source === "All reports" ? "Lightspeed reports" : source);
     selectReport(report.report);
-    setActiveReportsNavigation(source);
+    setSelectedDirectoryReport(report);
+    setActiveReportsNavigation(source === "Favourites" ? null : "All reports");
     setRequestedSavedViewName(report.viewName ?? null);
     if (report.viewName && report.report === "Overview") {
       const view = savedFilters.find((filter) => filter.name === report.viewName);
@@ -2224,7 +2349,7 @@ function ReportsPrototype() {
     setActiveReport("Product sales");
   }
 
-  function saveCurrentFilters(name: string, description: string) {
+  function saveCurrentFilters(name: string, description: string, sharedWithTeam: boolean) {
     setSavedFilters((prev) => [
       ...prev,
       {
@@ -2237,10 +2362,11 @@ function ReportsPrototype() {
         createdBy: CURRENT_CREATOR,
         createdAt: Date.now(),
         description,
+        sharedWithTeam,
       },
     ]);
     setActiveViewName(name);
-    const report: DirectoryReport = { id: `saved:Overview:${name}`, title: name, description, category: "Sales", report: "Overview", viewName: name, createdBy: CURRENT_CREATOR };
+    const report: DirectoryReport = { id: `saved:Overview:${name}`, title: name, description, category: "Sales", report: "Overview", viewName: name, createdBy: CURRENT_CREATOR, sharedWithTeam };
     setToast({ message: "New report saved.", actionLabel: "See report", onAction: () => selectDirectoryReport(report, "My reports") });
   }
 
@@ -2253,8 +2379,8 @@ function ReportsPrototype() {
     }
   }
 
-  function updateSavedFilter(oldName: string, newName: string, description: string) {
-    setSavedFilters((current) => current.map((filter) => filter.name === oldName ? { ...filter, name: newName, description } : filter));
+  function updateSavedFilter(oldName: string, newName: string, description: string, sharedWithTeam: boolean) {
+    setSavedFilters((current) => current.map((filter) => filter.name === oldName ? { ...filter, name: newName, description, sharedWithTeam } : filter));
     if (defaultView === oldName) setDefaultView(newName);
     if (activeViewName === oldName) setActiveViewName(newName);
     if (requestedSavedViewName === oldName) setRequestedSavedViewName(newName);
@@ -2269,16 +2395,17 @@ function ReportsPrototype() {
       savedViewHeaderActions.current?.delete();
     }
     setRequestedSavedViewName(null);
+    setSelectedDirectoryReport(null);
     setShowSavedViewMenu(false);
     setActiveReport("My reports");
     setActiveReportsNavigation(null);
   }
 
-  function updateFilter(name: string) {
+  function updateFilter(name: string, sharedWithTeam: boolean) {
     setSavedFilters((prev) =>
       prev.map((f) =>
         f.name === name
-          ? { ...f, sites: selectedSiteIds, registers: selectedRegisters, date: dateSelected, compare: compareSelected, tax: taxSelected }
+          ? { ...f, sites: selectedSiteIds, registers: selectedRegisters, date: dateSelected, compare: compareSelected, tax: taxSelected, sharedWithTeam }
           : f
       )
     );
@@ -2331,20 +2458,27 @@ function ReportsPrototype() {
 
   return (
     <div className="bg-[#f9f8f4] flex h-screen w-full">
-      <Sidebar activeReport={activeReportsNavigation ?? activeReport} onSelectReport={selectReport} />
+      <Sidebar activeReport={activeReportsNavigation ?? activeReport} onSelectReport={selectSidebarReport} />
 
       {/* Page area — white card fixed to viewport, only inner content scrolls */}
       <div className="flex-1 min-w-0 h-screen p-[8px] pl-0 flex flex-col">
         <div className="bg-white border border-[#e3e2dd] rounded-[16px] flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Title header — stays fixed */}
-          <div className={`relative border-b border-[#e3e2dd] flex min-h-[56px] gap-[16px] items-center ${requestedSavedViewName ? "px-[12px]" : "px-[24px]"} py-[8px] w-full shrink-0`}>
-            {requestedSavedViewName ? <>
-              <button type="button" onClick={() => { setShowSavedViewMenu(false); selectReport("My reports"); }} className="flex h-[32px] shrink-0 items-center gap-[4px] rounded-[8px] px-[8px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f2f0ea]">
+          <div className={`relative border-b border-[#e3e2dd] flex min-h-[56px] gap-[16px] items-center ${selectedDirectoryReport ? "px-[12px]" : "px-[24px]"} py-[8px] w-full shrink-0`}>
+            {selectedDirectoryReport ? <>
+              <button type="button" onClick={() => {
+                setShowSavedViewMenu(false);
+                setActiveReport(reportReturnPage);
+                setActiveReportsNavigation(reportReturnPage === "Favourites" ? null : "All reports");
+                setRequestedSavedViewName(null);
+                setSelectedDirectoryReport(null);
+                savedViewHeaderActions.current = null;
+              }} className="flex h-[32px] shrink-0 items-center gap-[4px] rounded-[8px] px-[8px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f2f0ea]">
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="m10 3-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 Back
               </button>
-              <span className="absolute left-1/2 max-w-[50%] -translate-x-1/2 truncate font-['Inter:Semibold'] text-[16px] leading-[24px] text-[#22201f]">{requestedSavedViewName}</span>
-              <div ref={savedViewMenuRef} className="relative ml-auto">
+              <span className="absolute left-1/2 max-w-[50%] -translate-x-1/2 truncate font-['Inter:Semibold'] text-[16px] leading-[24px] text-[#22201f]">{selectedDirectoryReport.title}</span>
+              {requestedSavedViewName && <div ref={savedViewMenuRef} className="relative ml-auto">
                 <button type="button" aria-label="More saved report actions" aria-haspopup="menu" aria-expanded={showSavedViewMenu} onClick={() => setShowSavedViewMenu((open) => !open)} className="flex size-[32px] items-center justify-center rounded-full text-[#22201f] hover:bg-[#f4f3ef]">
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.25" /><circle cx="8" cy="8" r="1.25" /><circle cx="13" cy="8" r="1.25" /></svg>
                 </button>
@@ -2352,9 +2486,9 @@ function ReportsPrototype() {
                   <button type="button" role="menuitem" onClick={() => { setShowSavedViewMenu(false); if (activeReport === "Overview") setEditingSavedViewName(requestedSavedViewName); else savedViewHeaderActions.current?.rename(); }} className="flex h-[36px] w-full items-center rounded-[4px] px-[10px] text-left font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f9f8f4]">Settings</button>
                   <button type="button" role="menuitem" onClick={deleteActiveSavedView} className="flex h-[36px] w-full items-center rounded-[4px] px-[10px] text-left font-['Inter:Medium'] text-[14px] leading-[20px] text-[#b42318] hover:bg-[#fef3f2]">Delete report</button>
                 </div>}
-              </div>
+              </div>}
             </> : <>
-              <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] min-w-0 truncate">{activeReport}</span>
+              <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] min-w-0 truncate">{activeReport === "Transactions" ? "Sales feed" : activeReport === "Lightspeed reports" || activeReport === "Shared reports" || activeReport === "My reports" ? "All reports" : activeReport}</span>
               <div className="flex-1 min-w-0" />
               <img alt="" className="block shrink-0 size-[24px] cursor-pointer" src={imgChat} />
               <img alt="" className="block shrink-0 size-[24px] cursor-pointer" src={imgAnnouncement} />
@@ -2362,8 +2496,15 @@ function ReportsPrototype() {
             </>}
           </div>
 
-          {activeReport === "All reports" || activeReport === "My reports" ? (
-            <ReportsLanding page={activeReport} onSelectReport={selectDirectoryReport} />
+          {activeReport === "All reports" || activeReport === "Favourites" || activeReport === "Lightspeed reports" || activeReport === "Shared reports" || activeReport === "My reports" ? (
+            <ReportsLanding
+              page={activeReport}
+              onSelectPage={selectReportsTab}
+              onSelectReport={selectDirectoryReport}
+              favouriteIds={favouriteReportIds}
+              onToggleFavourite={toggleReportFavourite}
+              onFavouriteSuccess={showFavouriteSuccess}
+            />
           ) : activeReport === "Transactions" ? (
             <div className="h-0 min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
               <TransactionsPage
@@ -2422,6 +2563,8 @@ function ReportsPrototype() {
                 onSelectTax={setTaxSelected}
               />
             </div>
+           ) : selectedDirectoryReport && ["preset:hourly-sales", "preset:daily-sales", "preset:site-comparison"].includes(selectedDirectoryReport.id) ? (
+            <div className="h-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-contain" />
            ) : (
            /* Scrollable content area */
            <div className="flex flex-col gap-[24px] items-start p-[24px] w-full overflow-y-auto flex-1">
@@ -2492,7 +2635,7 @@ function ReportsPrototype() {
                 {hasChangedSavedView && (
                 <div className="ml-[8px] flex items-center gap-[12px]">
                   <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => requestedSavedView ? applyFilter(requestedSavedView) : reset()}>Reset</ActionButton>
-                  {(requestedSavedViewName || !isSaved) && <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}
+                  {(requestedSavedViewName || !isSaved) && <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save report</ActionButton>}
                 </div>
               )}
               </div>
@@ -2641,6 +2784,8 @@ function ReportsPrototype() {
           suggestedDescription={suggestedDescription}
           initialMode={requestedSavedViewName ? "existing" : "new"}
           initialExistingName={requestedSavedViewName}
+          initialSharedWithTeam={savedFilters.find((filter) => filter.name === requestedSavedViewName)?.sharedWithTeam ?? false}
+          sharedExistingFilters={savedFilters.filter((filter) => filter.sharedWithTeam).map((filter) => filter.name)}
         />
       )}
 
@@ -2648,9 +2793,10 @@ function ReportsPrototype() {
         <EditSavedViewModal
           name={editingSavedViewName}
           description={savedFilters.find((filter) => filter.name === editingSavedViewName)?.description ?? ""}
+          sharedWithTeam={savedFilters.find((filter) => filter.name === editingSavedViewName)?.sharedWithTeam ?? false}
           existingNames={savedFilters.map((filter) => filter.name)}
           onClose={() => setEditingSavedViewName(null)}
-          onSave={(name, description) => updateSavedFilter(editingSavedViewName, name, description)}
+          onSave={(name, description, sharedWithTeam) => updateSavedFilter(editingSavedViewName, name, description, sharedWithTeam)}
         />
       )}
 
@@ -2986,19 +3132,19 @@ function TransactionsPage({
   const paymentOptions = ["Account credit", "Bopple", "Cash", "Gift cards", "Lightspeed Payments", "Loyalty credit", "UberEats"];
   const customerOptions = [...new Set(TRANSACTION_ROWS.map((row) => row.customer))].sort((left, right) => left.localeCompare(right));
 
-  function saveView(name: string, description: string) {
-    const savedView = { ...filterSnapshot(), name, description, createdBy: CURRENT_CREATOR, createdAt: Date.now() };
+  function saveView(name: string, description: string, sharedWithTeam: boolean) {
+    const savedView = { ...filterSnapshot(), name, description, createdBy: CURRENT_CREATOR, createdAt: Date.now(), sharedWithTeam };
     setSavedViews((current) => [...current, savedView]);
     setActiveViewName(name);
     setToast({ message: "New report saved.", actionLabel: "See report", onAction: () => applyView(savedView) });
   }
-  function saveExistingView(name: string) {
-    setSavedViews((current) => current.map((view) => view.name === name ? { ...filterSnapshot(), name, description: view.description, createdBy: view.createdBy ?? CURRENT_CREATOR, createdAt: view.createdAt ?? Date.now() } : view));
+  function saveExistingView(name: string, sharedWithTeam: boolean) {
+    setSavedViews((current) => current.map((view) => view.name === name ? { ...filterSnapshot(), name, description: view.description, createdBy: view.createdBy ?? CURRENT_CREATOR, createdAt: view.createdAt ?? Date.now(), sharedWithTeam } : view));
     setActiveViewName(name);
     setShowSaveModal(false);
   }
-  function updateSavedViewDetails(oldName: string, newName: string, description: string) {
-    setSavedViews((current) => current.map((view) => view.name === oldName ? { ...view, name: newName, description } : view));
+  function updateSavedViewDetails(oldName: string, newName: string, description: string, sharedWithTeam: boolean) {
+    setSavedViews((current) => current.map((view) => view.name === oldName ? { ...view, name: newName, description, sharedWithTeam } : view));
     setOriginalSavedView((current) => current?.name === oldName ? { ...current, name: newName, description } : current);
     if (defaultView === oldName) setDefaultView(newName);
     if (activeViewName === oldName) setActiveViewName(newName);
@@ -3060,7 +3206,7 @@ function TransactionsPage({
         {hasChangedSavedView && (
           <div className="ml-[8px] flex items-center gap-[12px]">
             <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => originalSavedView ? applyView(originalSavedView) : resetFilters()}>Reset</ActionButton>
-            {(requestedSavedViewName || !savedViews.some((view) => JSON.stringify({ ...view, name: "" }) === JSON.stringify(filterSnapshot()))) && <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>}
+            {(requestedSavedViewName || !savedViews.some((view) => JSON.stringify({ ...view, name: "" }) === JSON.stringify(filterSnapshot()))) && <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save report</ActionButton>}
           </div>
         )}
       </div>
@@ -3077,8 +3223,8 @@ function TransactionsPage({
       </table>
       {!isRefreshing && activeRows.length === 0 && <p className="px-[16px] py-[24px] text-center font-['Inter:Regular'] text-[#62615d] text-[14px]">No transactions match these filters.</p>}
     </div>
-    {showSaveModal && <SaveViewModal onClose={() => setShowSaveModal(false)} onSave={saveView} onUpdate={saveExistingView} existingFilters={savedViews.map((view) => view.name)} hasExisting={savedViews.length > 0} suggestedName={suggestedViewName} suggestedDescription={suggestedDescription} initialMode={requestedSavedViewName ? "existing" : "new"} initialExistingName={requestedSavedViewName} />}
-    {editingSavedViewName && <EditSavedViewModal name={editingSavedViewName} description={savedViews.find((view) => view.name === editingSavedViewName)?.description ?? ""} existingNames={savedViews.map((view) => view.name)} onClose={() => setEditingSavedViewName(null)} onSave={(name, description) => updateSavedViewDetails(editingSavedViewName, name, description)} />}
+    {showSaveModal && <SaveViewModal onClose={() => setShowSaveModal(false)} onSave={saveView} onUpdate={saveExistingView} existingFilters={savedViews.map((view) => view.name)} hasExisting={savedViews.length > 0} suggestedName={suggestedViewName} suggestedDescription={suggestedDescription} initialMode={requestedSavedViewName ? "existing" : "new"} initialExistingName={requestedSavedViewName} initialSharedWithTeam={savedViews.find((view) => view.name === requestedSavedViewName)?.sharedWithTeam ?? false} sharedExistingFilters={savedViews.filter((view) => view.sharedWithTeam).map((view) => view.name)} />}
+    {editingSavedViewName && <EditSavedViewModal name={editingSavedViewName} description={savedViews.find((view) => view.name === editingSavedViewName)?.description ?? ""} sharedWithTeam={savedViews.find((view) => view.name === editingSavedViewName)?.sharedWithTeam ?? false} existingNames={savedViews.map((view) => view.name)} onClose={() => setEditingSavedViewName(null)} onSave={(name, description, sharedWithTeam) => updateSavedViewDetails(editingSavedViewName, name, description, sharedWithTeam)} />}
     {toast && <Toast message={typeof toast === "string" ? toast : toast.message} actionLabel={typeof toast === "string" ? undefined : toast.actionLabel} onAction={typeof toast === "string" ? undefined : toast.onAction} onDone={() => setToast(null)} />}
   </div>;
 }
@@ -3296,15 +3442,15 @@ function ProductSalesPage({
     };
   }
 
-  function saveView(name: string, description: string) {
-    const view = { ...captureView(name), description, createdBy: CURRENT_CREATOR, createdAt: Date.now() };
+  function saveView(name: string, description: string, sharedWithTeam: boolean) {
+    const view = { ...captureView(name), description, createdBy: CURRENT_CREATOR, createdAt: Date.now(), sharedWithTeam };
     setSavedViews((current) => [...current, view]);
     setActiveViewName(name);
     setToast({ message: "New report saved.", actionLabel: "See report", onAction: () => applyView(view) });
   }
 
-  function updateSavedView(name: string) {
-    setSavedViews((current) => current.map((view) => view.name === name ? { ...captureView(name), description: view.description, createdBy: view.createdBy ?? CURRENT_CREATOR, createdAt: view.createdAt ?? Date.now() } : view));
+  function updateSavedView(name: string, sharedWithTeam: boolean) {
+    setSavedViews((current) => current.map((view) => view.name === name ? { ...captureView(name), description: view.description, createdBy: view.createdBy ?? CURRENT_CREATOR, createdAt: view.createdAt ?? Date.now(), sharedWithTeam } : view));
     setActiveViewName(name);
     setShowSaveModal(false);
   }
@@ -3343,8 +3489,8 @@ function ProductSalesPage({
     if (activeViewName === name) setActiveViewName(null);
   }
 
-  function updateSavedViewDetails(oldName: string, newName: string, description: string) {
-    setSavedViews((current) => current.map((view) => view.name === oldName ? { ...view, name: newName, description } : view));
+  function updateSavedViewDetails(oldName: string, newName: string, description: string, sharedWithTeam: boolean) {
+    setSavedViews((current) => current.map((view) => view.name === oldName ? { ...view, name: newName, description, sharedWithTeam } : view));
     if (defaultView === oldName) setDefaultView(newName);
     if (activeViewName === oldName) setActiveViewName(newName);
     onSavedViewRenamed(oldName, newName);
@@ -3464,7 +3610,7 @@ function ProductSalesPage({
           {hasChangedSavedView && (
             <div className="ml-[8px] flex items-center gap-[12px]">
               <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => requestedSavedView ? applyView(requestedSavedView) : resetProductSalesFilters()}>Reset</ActionButton>
-              <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save view</ActionButton>
+              <ActionButton variant="text" size="slim" className="!h-auto !px-0 hover:!bg-transparent" onClick={() => setShowSaveModal(true)}>Save report</ActionButton>
             </div>
           )}
         </div>
@@ -3553,13 +3699,16 @@ function ProductSalesPage({
         suggestedDescription={suggestedDescription}
         initialMode={requestedSavedViewName ? "existing" : "new"}
         initialExistingName={requestedSavedViewName}
+        initialSharedWithTeam={savedViews.find((view) => view.name === requestedSavedViewName)?.sharedWithTeam ?? false}
+        sharedExistingFilters={savedViews.filter((view) => view.sharedWithTeam).map((view) => view.name)}
       />}
       {editingSavedViewName && <EditSavedViewModal
         name={editingSavedViewName}
         description={savedViews.find((view) => view.name === editingSavedViewName)?.description ?? ""}
+        sharedWithTeam={savedViews.find((view) => view.name === editingSavedViewName)?.sharedWithTeam ?? false}
         existingNames={savedViews.map((view) => view.name)}
         onClose={() => setEditingSavedViewName(null)}
-        onSave={(name, description) => updateSavedViewDetails(editingSavedViewName, name, description)}
+        onSave={(name, description, sharedWithTeam) => updateSavedViewDetails(editingSavedViewName, name, description, sharedWithTeam)}
       />}
       {toast && <Toast message={typeof toast === "string" ? toast : toast.message} actionLabel={typeof toast === "string" ? undefined : toast.actionLabel} onAction={typeof toast === "string" ? undefined : toast.onAction} onDone={() => setToast(null)} />}
     </div>

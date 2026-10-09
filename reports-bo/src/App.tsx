@@ -1616,7 +1616,7 @@ const prototypeVersions = [
   {
     version: "Version 3A",
     updated: "30 September 2026",
-    description: "Reports library and reporting views for continued exploration.",
+    description: "Saving custom reports, shared reports, and favouriting reports.",
     href: `${import.meta.env.BASE_URL}version-3a`,
   },
   {

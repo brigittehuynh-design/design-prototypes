@@ -60,3 +60,38 @@ html {
   border-radius: 4px;
   display: inline-block;
 }
+
+@keyframes favourite-heart-pop {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.4); }
+  68% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.favourite-heart-pop {
+  animation: favourite-heart-pop 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes favourite-heart-float {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.55); }
+  18% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(var(--heart-drift), -27px) scale(1); }
+}
+.favourite-heart-float {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  width: 8px;
+  height: 8px;
+  color: #d74444;
+  animation: favourite-heart-float 760ms ease-out both;
+}
+.favourite-heart-float-1 { --heart-drift: -9px; animation-delay: 0ms; }
+.favourite-heart-float-2 { --heart-drift: 0px; animation-delay: 70ms; }
+.favourite-heart-float-3 { --heart-drift: 9px; animation-delay: 35ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .favourite-heart-pop,
+  .favourite-heart-float {
+    animation: none;
+  }
+}
