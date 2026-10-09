@@ -1616,13 +1616,13 @@ const prototypeVersions = [
   {
     version: "Version 3A",
     updated: "30 September 2026",
-    description: "Saving custom reports, shared reports, and favouriting reports.",
+    description: "Pinning reports to the top for quick access.",
     href: `${import.meta.env.BASE_URL}version-3a`,
   },
   {
     version: "Version 3B",
-    updated: "6 October 2026",
-    description: "A duplicate of Version 3A for continued exploration.",
+    updated: "9 October 2026",
+    description: "Saving custom reports, shared reports, and favouriting reports.",
     href: `${import.meta.env.BASE_URL}version-3b`,
   },
 ];
