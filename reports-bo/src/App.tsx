@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import VersionOnePrototype from "./VersionOne";
 import VersionThreePrototype from "./VersionThree";
 import VersionThreeBPrototype from "./VersionThreeB";
+import VersionFourPrototype from "./VersionFour";
 import ActionButton from "./components/ActionButton";
 
 const assetPathPrefix = `${import.meta.env.BASE_URL}assets`;
@@ -1625,6 +1626,12 @@ const prototypeVersions = [
     description: "A duplicate of Version 3A for continued exploration.",
     href: `${import.meta.env.BASE_URL}version-3b`,
   },
+  {
+    version: "Version 4",
+    updated: "19 October 2026",
+    description: "A duplicate of Version 3B for continued exploration.",
+    href: `${import.meta.env.BASE_URL}version-4`,
+  },
 ];
 
 function PrototypeHome() {
@@ -1698,12 +1705,14 @@ export default function App() {
   const versionTwoPath = `${import.meta.env.BASE_URL}version-2`.replace(/\/+$/, "");
   const versionThreeAPath = `${import.meta.env.BASE_URL}version-3a`.replace(/\/+$/, "");
   const versionThreeBPath = `${import.meta.env.BASE_URL}version-3b`.replace(/\/+$/, "");
+  const versionFourPath = `${import.meta.env.BASE_URL}version-4`.replace(/\/+$/, "");
   const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
 
   if (currentPath === versionOnePath) return <VersionOnePrototype />;
   if (currentPath === versionTwoPath) return <VersionTwoA />;
   if (currentPath === versionThreeAPath) return <VersionThreePrototype />;
   if (currentPath === versionThreeBPath) return <VersionThreeBPrototype />;
+  if (currentPath === versionFourPath) return <VersionFourPrototype />;
   return <PrototypeHome />;
 }
 
