@@ -34,9 +34,9 @@ const imgDivider = `${assetPathPrefix}/973a3.svg`
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-type ReportName = "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports" | "Overview" | "Product sales" | "Transactions" | "Legacy"
-type SavedReportKind = Exclude<ReportName, "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports">
-type SavedViewSummary = { name: string; createdBy?: string }
+type ReportName = "All reports" | "Lightspeed reports" | "Shared reports" | "My reports" | "Overview" | "Product sales" | "Transactions" | "Legacy"
+type SavedReportKind = Exclude<ReportName, "All reports" | "Lightspeed reports" | "Shared reports" | "My reports">
+type SavedViewSummary = { name: string createdBy?: string }
 type SavedViewHeaderActions = {
   rename: () => void
   delete: () => void
@@ -118,30 +118,19 @@ function ReportsLanding({
   page,
   onSelectPage,
   onSelectReport,
-  favouriteIds,
-  onToggleFavourite,
-  onFavouriteSuccess,
 }: {
-  page: "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports"
+  page: "All reports" | "Lightspeed reports" | "Shared reports" | "My reports"
   onSelectPage: (
     page: "Lightspeed reports" | "Shared reports" | "My reports" | "All reports",
   ) => void
   onSelectReport: (
     report: DirectoryReport,
-    source: "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports",
+    source: "All reports" | "Lightspeed reports" | "Shared reports" | "My reports",
   ) => void
-  favouriteIds: string[]
-  onToggleFavourite: (report: DirectoryReport) => void
-  onFavouriteSuccess: (report: DirectoryReport) => void
 }) {
   const [creator, setCreator] = useState("Anyone")
   const [openFilter, setOpenFilter] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState("First added")
-  const [heartBurst, setHeartBurst] = useState<{
-    reportId: string
-    token: number
-  } | null>(null)
-  const heartBurstToken = useRef(0)
   useEffect(
     () =>
       setSortBy(
@@ -151,11 +140,6 @@ function ReportsLanding({
       ),
     [page],
   )
-  useEffect(() => {
-    if (!heartBurst) return
-    const timeout = window.setTimeout(() => setHeartBurst(null), 900)
-    return () => window.clearTimeout(timeout)
-  }, [heartBurst])
   const savedReports: DirectoryReport[] = [
     ...loadStoredValue<SalesOverviewStorage>(SALES_OVERVIEW_STORAGE_KEY, {
       savedFilters: [],
@@ -208,20 +192,18 @@ function ReportsLanding({
   ]
   const allReports = [...reportDirectoryItems, ...savedReports]
   const reports =
-    page === "Favourites"
-      ? allReports.filter((report) => favouriteIds.includes(report.id))
-      : page === "Lightspeed reports"
-        ? reportDirectoryItems
-        : page === "Shared reports"
+    page === "Lightspeed reports"
+      ? reportDirectoryItems
+      : page === "Shared reports"
+        ? savedReports.filter(
+            (report) =>
+              report.sharedWithTeam || report.createdBy !== CURRENT_CREATOR,
+          )
+        : page === "My reports"
           ? savedReports.filter(
-              (report) =>
-                report.sharedWithTeam || report.createdBy !== CURRENT_CREATOR,
+              (report) => report.createdBy === CURRENT_CREATOR,
             )
-          : page === "My reports"
-            ? savedReports.filter(
-                (report) => report.createdBy === CURRENT_CREATOR,
-              )
-            : allReports
+          : allReports
   const creators = [
     ...new Set(
       reports
@@ -294,70 +276,6 @@ function ReportsLanding({
               : report.createdBy}
           </span>
         )}
-        <span className="relative flex size-[32px] shrink-0 items-center justify-center">
-          {heartBurst?.reportId === report.id && (
-            <span
-              key={heartBurst.token}
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-            >
-              {[0, 1, 2].map((heart) => (
-                <svg
-                  key={heart}
-                  className={`favourite-heart-float favourite-heart-float-${heart + 1}`}
-                  viewBox="0 0 16 16"
-                  fill="currentColor"
-                >
-                  <path d="M8 13.25S2.5 9.9 2.5 5.85a2.85 2.85 0 0 1 5.5-1.1 2.85 2.85 0 0 1 5.5 1.1C13.5 9.9 8 13.25 8 13.25Z" />
-                </svg>
-              ))}
-            </span>
-          )}
-          <button
-            type="button"
-            aria-label={`${
-              favouriteIds.includes(report.id) ? "Remove" : "Add"
-            } ${report.title} ${
-              favouriteIds.includes(report.id) ? "from" : "to"
-            } favourites`}
-            aria-pressed={favouriteIds.includes(report.id)}
-            onClick={() => {
-              const isFavourited = favouriteIds.includes(report.id)
-              if (!isFavourited) {
-                heartBurstToken.current += 1
-                setHeartBurst({
-                  reportId: report.id,
-                  token: heartBurstToken.current,
-                })
-              }
-              onToggleFavourite(report)
-              if (!isFavourited) onFavouriteSuccess(report)
-            }}
-            className="relative z-10 flex size-[32px] items-center justify-center rounded-full text-[#777671] transition-colors hover:bg-[#edeae4] hover:text-[#22201f] focus-visible:outline-2 focus-visible:outline-[#1e72c4]"
-          >
-            <svg
-              aria-hidden="true"
-              className={`size-[16px] ${
-                favouriteIds.includes(report.id) &&
-                heartBurst?.reportId === report.id
-                  ? "favourite-heart-pop"
-                  : ""
-              }`}
-              viewBox="0 0 16 16"
-              fill={favouriteIds.includes(report.id) ? "#d74444" : "none"}
-            >
-              <path
-                d="M8 13.25S2.5 9.9 2.5 5.85a2.85 2.85 0 0 1 5.5-1.1 2.85 2.85 0 0 1 5.5 1.1C13.5 9.9 8 13.25 8 13.25Z"
-                stroke={
-                  favouriteIds.includes(report.id) ? "#d74444" : "currentColor"
-                }
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </span>
       </div>
     ))
   }
@@ -365,34 +283,32 @@ function ReportsLanding({
   return (
     <div className="h-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
       <div className="mx-auto flex w-full max-w-[920px] flex-col gap-[24px] px-[20px] py-[24px] sm:px-[24px]">
-        {page !== "Favourites" && (
-          <div
-            aria-label="Report collection"
-            className="flex h-[40px] w-fit max-w-full shrink-0 overflow-x-auto rounded-[8px] bg-[#edeae4] p-[4px]"
-            role="group"
-          >
-            {([
-              ["Lightspeed reports", "Lightspeed"],
-              ["Shared reports", "Shared"],
-              ["My reports", "My reports"],
-              ["All reports", "All reports"],
-            ] as const).map(([option, label]) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={page === option}
-                onClick={() => onSelectPage(option)}
-                className={`flex h-[32px] w-[96px] shrink-0 items-center justify-center whitespace-nowrap rounded-[4px] border px-[12px] font-['Inter:Semibold'] text-[14px] leading-[20px] transition-colors ${
-                  page === option
-                    ? "border-[#e3e2dd] bg-white text-[#22201f]"
-                    : "border-transparent text-[#22201f] hover:bg-[#f4f2ed]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div
+          aria-label="Report collection"
+          className="flex h-[40px] w-fit max-w-full shrink-0 overflow-x-auto rounded-[8px] bg-[#edeae4] p-[4px]"
+          role="group"
+        >
+          {([
+            ["Lightspeed reports", "Lightspeed"],
+            ["Shared reports", "Shared"],
+            ["My reports", "My reports"],
+            ["All reports", "All reports"],
+          ] as const).map(([option, label]) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={page === option}
+              onClick={() => onSelectPage(option)}
+              className={`flex h-[32px] w-[96px] shrink-0 items-center justify-center whitespace-nowrap rounded-[4px] border px-[12px] font-['Inter:Semibold'] text-[14px] leading-[20px] transition-colors ${
+                page === option
+                  ? "border-[#e3e2dd] bg-white text-[#22201f]"
+                  : "border-transparent text-[#22201f] hover:bg-[#f4f2ed]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <section
           aria-label="Reports list"
           className="overflow-visible rounded-[12px] border border-[#e3e2dd] p-[16px]"
@@ -449,13 +365,11 @@ function ReportsLanding({
             <ReportRows reports={matchingReports} />
           ) : (
             <p className="px-[16px] py-[20px] text-center text-[14px] leading-[20px] text-[#62615d]">
-              {page === "Favourites" && favouriteIds.length === 0
-                ? "Reports you favourite will appear here."
-                : page === "Shared reports"
-                  ? "Reports shared with you will appear here."
-                  : page === "My reports"
-                    ? "Reports you create will appear here."
-                    : "No reports match these filters."}
+              {page === "Shared reports"
+                ? "Reports shared with you will appear here."
+                : page === "My reports"
+                  ? "Reports you create will appear here."
+                  : "No reports match these filters."}
             </p>
           )}
         </section>
@@ -570,7 +484,11 @@ const overviewDashboardWidgets = [
   { key: "breakdowns", label: "Order and payment breakdowns", optional: false },
   { key: "top-products", label: "Top-selling products", optional: false },
   { key: "sales-by-site", label: "Sales by site", optional: false },
-  { key: "sales-closed-by-staff", label: "Sales by staff (closed)", optional: false },
+  {
+    key: "sales-closed-by-staff",
+    label: "Sales by staff (closed)",
+    optional: false,
+  },
   { key: "discounts", label: "Sales by discounts", optional: true },
   { key: "tax-rates", label: "Sales by tax rate", optional: true },
   { key: "order-source", label: "Sales by order source", optional: true },
@@ -631,8 +549,19 @@ function CustomiseDashboardDrawer({
             onClick={onClose}
             className="flex size-[32px] items-center justify-center rounded-full text-[#62615d] hover:bg-[#f4f3ef]"
           >
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="m4 4 8 8m0-8-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+            >
+              <path
+                d="m4 4 8 8m0-8-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>
@@ -896,7 +825,7 @@ function OverviewV2RankedCard({
   headline: string
   detail: string
   trend: string
-  rows: Array<{ name: string; value: string; change: string; positive: boolean }>
+  rows: Array<{ name: string value: string change: string positive: boolean }>
   compareLabel: string
   showComparison: boolean
   onSeeMore: () => void
@@ -956,7 +885,7 @@ function OverviewV2RankedCard({
         onClick={onSeeMore}
         className="mt-auto pt-[10px] text-left font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
       >
-        See more
+        Drill in
       </button>
     </section>
   )
@@ -1086,7 +1015,12 @@ function OverviewV2Dashboard({
       { label: "Bopple", value: "$1,842.60", color: "#3390e0", share: 33 },
       { label: "Uber Eats", value: "$1,426.80", color: "#a367e8", share: 26 },
       { label: "DoorDash", value: "$986.40", color: "#9bd879", share: 18 },
-      { label: "Lightspeed Online", value: "$742.20", color: "#ed8ddc", share: 13 },
+      {
+        label: "Lightspeed Online",
+        value: "$742.20",
+        color: "#ed8ddc",
+        share: 13,
+      },
       { label: "Deliveroo", value: "$518.50", color: "#f4a158", share: 10 },
     ],
   }
@@ -1098,7 +1032,10 @@ function OverviewV2Dashboard({
             <h3 className="min-w-0 flex-1 font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
               Hourly sales
             </h3>
-            <MetricMoreMenu onExportPng={() => {}} onViewMethodology={() => {}} />
+            <MetricMoreMenu
+              onExportPng={() => {}}
+              onViewMethodology={() => {}}
+            />
             <InfoIcon tooltip="Hourly sales compared with the previous period" />
           </div>
           <HourlySalesChart
@@ -1117,10 +1054,12 @@ function OverviewV2Dashboard({
         </div>
       </WidgetCard>
     ),
-    ...Object.fromEntries(overviewV2Donuts.map((chart, index) => [
-      ["open-orders", "payment-methods", "order-types"][index],
-      <OverviewV2DonutCard {...chart} isRefreshing={isRefreshing} />,
-    ])),
+    ...Object.fromEntries(
+      overviewV2Donuts.map((chart, index) => [
+        ["open-orders", "payment-methods", "order-types"][index],
+        <OverviewV2DonutCard {...chart} isRefreshing={isRefreshing} />,
+      ]),
+    ),
     "order-source": (
       <OverviewV2DonutCard
         title="Sales by order source"
@@ -1154,59 +1093,139 @@ function OverviewV2Dashboard({
               {table.rows[0][0]}
             </p>
             <div className="mt-[2px] flex flex-wrap items-center gap-[6px] text-[14px] leading-[20px] text-[#62615d]">
-              <span className="font-['Inter:Regular'] text-[#62615d]">{table.rows[0][1]}</span>
+              <span className="font-['Inter:Regular'] text-[#62615d]">
+                {table.rows[0][1]}
+              </span>
               {table.rows[0][2] !== "—" && (
                 <>
-                  <span aria-hidden="true" className="font-['Inter:Regular'] text-[#62615d]">·</span>
-                <span className={`font-['Inter:Semibold'] font-semibold ${table.rows[0][2].startsWith("+") ? "text-[#008e13]" : "text-[#8e1311]"}`}>
-                  {table.rows[0][2]}
-                </span>
+                  <span
+                    aria-hidden="true"
+                    className="font-['Inter:Regular'] text-[#62615d]"
+                  >
+                    ·
+                  </span>
+                  <span
+                    className={`font-['Inter:Semibold'] font-semibold ${
+                      table.rows[0][2].startsWith("+")
+                        ? "text-[#008e13]"
+                        : "text-[#8e1311]"
+                    }`}
+                  >
+                    {table.rows[0][2]}
+                  </span>
                 </>
               )}
-              {showComparison && <span className="font-['Inter:Regular'] text-[#62615d]">vs {lowercaseFirstLetter(compareLabel)}</span>}
+              {showComparison && (
+                <span className="font-['Inter:Regular'] text-[#62615d]">
+                  vs {lowercaseFirstLetter(compareLabel)}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex flex-col">
             {table.rows.map(([name, value, change]) => (
-              <div key={name} className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0">
-                <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{name}</span>
-                <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{value}</span>
-                <span className={`w-[56px] shrink-0 text-center font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${change.startsWith("+") ? "text-[#008e13]" : change === "—" ? "text-[#62615d]" : "text-[#8e1311]"}`}>{change}</span>
+              <div
+                key={name}
+                className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0"
+              >
+                <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">
+                  {name}
+                </span>
+                <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
+                  {value}
+                </span>
+                <span
+                  className={`w-[56px] shrink-0 text-center font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
+                    change.startsWith("+")
+                      ? "text-[#008e13]"
+                      : change === "—"
+                        ? "text-[#62615d]"
+                        : "text-[#8e1311]"
+                  }`}
+                >
+                  {change}
+                </span>
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => selectProductSales(table.dimension)} className="mt-[6px] block w-fit self-start text-left font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline">See more</button>
+          <button
+            type="button"
+            onClick={() => selectProductSales(table.dimension)}
+            className="mt-[6px] block w-fit self-start text-left font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
+          >
+            Drill in
+          </button>
         </section>,
       ]),
     ),
     discounts: (
       <section className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-        <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Sales by discounts</h3>
+        <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+          Sales by discounts
+        </h3>
         <div className="flex flex-col">
-          {[["Loyalty reward", "$1,284.20", "31 orders"], ["Happy hour", "$846.50", "24 orders"], ["Staff discount", "$218.40", "12 orders"]].map(([name, value, orders]) => (
-            <div key={name} className="flex min-h-[44px] items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0"><span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{name}</span><span className="font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{value}</span><span className="w-[72px] text-right text-[12px] leading-[16px] text-[#62615d]">{orders}</span></div>
+          {[
+            ["Loyalty reward", "$1,284.20", "31 orders"],
+            ["Happy hour", "$846.50", "24 orders"],
+            ["Staff discount", "$218.40", "12 orders"],
+          ].map(([name, value, orders]) => (
+            <div
+              key={name}
+              className="flex min-h-[44px] items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0"
+            >
+              <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">
+                {name}
+              </span>
+              <span className="font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
+                {value}
+              </span>
+              <span className="w-[72px] text-right text-[12px] leading-[16px] text-[#62615d]">
+                {orders}
+              </span>
+            </div>
           ))}
         </div>
       </section>
     ),
     "tax-rates": (
       <section className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-        <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Sales by tax rate</h3>
+        <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+          Sales by tax rate
+        </h3>
         <div className="flex flex-col gap-[8px]">
-          {[["Standard rate", "10%", "$3,245.80"], ["Reduced rate", "5%", "$724.60"], ["Zero rate", "0%", "$212.20"]].map(([name, rate, value]) => (
-            <div key={name} className="flex items-center justify-between gap-[8px] rounded-[8px] bg-[#f9f8f4] p-[12px]"><span className="text-[12px] leading-[16px] text-[#62615d]">{name} · {rate}</span><span className="font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#22201f]">{value}</span></div>
+          {[
+            ["Standard rate", "10%", "$3,245.80"],
+            ["Reduced rate", "5%", "$724.60"],
+            ["Zero rate", "0%", "$212.20"],
+          ].map(([name, rate, value]) => (
+            <div
+              key={name}
+              className="flex items-center justify-between gap-[8px] rounded-[8px] bg-[#f9f8f4] p-[12px]"
+            >
+              <span className="text-[12px] leading-[16px] text-[#62615d]">
+                {name} · {rate}
+              </span>
+              <span className="font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#22201f]">
+                {value}
+              </span>
+            </div>
           ))}
         </div>
       </section>
     ),
   }
-  const reorderableWidgetKeys = widgetOrder.filter((key) =>
-    widgets[key] &&
-    (key === "open-orders" || key === "payment-methods" || key === "order-types"
-      ? visibleWidgets.includes("breakdowns")
-      : key === "top-product" || key === "top-category" || key === "top-reporting-group"
-        ? visibleWidgets.includes("top-products")
-        : visibleWidgets.includes(key)),
+  const reorderableWidgetKeys = widgetOrder.filter(
+    (key) =>
+      widgets[key] &&
+      (key === "open-orders" ||
+      key === "payment-methods" ||
+      key === "order-types"
+        ? visibleWidgets.includes("breakdowns")
+        : key === "top-product" ||
+            key === "top-category" ||
+            key === "top-reporting-group"
+          ? visibleWidgets.includes("top-products")
+          : visibleWidgets.includes(key)),
   )
   const renderWidget = (key: string) => (
     <div
@@ -1223,7 +1242,8 @@ function OverviewV2Dashboard({
       }}
       onDrop={(event) => {
         event.preventDefault()
-        const sourceKey = event.dataTransfer.getData("text/plain") || draggedWidget
+        const sourceKey =
+          event.dataTransfer.getData("text/plain") || draggedWidget
         if (!sourceKey || sourceKey === key) return
         setWidgetOrder((current) => {
           const next = [...current]
@@ -1247,13 +1267,16 @@ function OverviewV2Dashboard({
         setWidgetOrder((current) => {
           const index = current.indexOf(key)
           const targetIndex = index + (event.key === "ArrowUp" ? -1 : 1)
-          if (index < 0 || targetIndex < 0 || targetIndex >= current.length) return current
+          if (index < 0 || targetIndex < 0 || targetIndex >= current.length)
+            return current
           const next = [...current]
           ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
           return next
         })
       }}
-      className={`group/widget relative flex w-full min-w-0 cursor-grab items-stretch active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-[#1e72c4] ${key === "hourly-sales" ? "col-span-1 sm:col-span-3" : "col-span-1"} ${draggedWidget === key ? "opacity-40" : ""}`}
+      className={`group/widget relative flex w-full min-w-0 cursor-grab items-stretch active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-[#1e72c4] ${
+        key === "hourly-sales" ? "col-span-1 sm:col-span-3" : "col-span-1"
+      } ${draggedWidget === key ? "opacity-40" : ""}`}
       style={{ order: widgetOrder.indexOf(key) }}
     >
       <span
@@ -1277,38 +1300,38 @@ function OverviewV2Dashboard({
     <div className="flex w-full flex-col gap-[12px] sm:gap-[16px]">
       {visibleWidgets.includes("kpis") && (
         <div className="grid grid-cols-2 gap-[8px] sm:grid-cols-4 sm:gap-[12px]">
-        {kpis.map((kpi) => (
-          <section
-            key={kpi.label}
-            className="flex min-w-0 flex-col gap-[10px] rounded-[12px] border border-[#e3e2dd] bg-white p-[16px] sm:h-[120px] sm:justify-between sm:gap-0"
-          >
-            <div className="flex items-center gap-[6px]">
-              <span className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
-                {kpi.label}
-              </span>
-              <InfoIcon tooltip={kpi.label} />
-            </div>
-            <div className="flex min-w-0 flex-col items-start gap-[4px]">
-              <span className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">
-                {isRefreshing ? <Sk w="w-[72px]" /> : kpi.value}
-              </span>
-              {showComparison && (
-                <div className="flex items-center gap-[6px]">
-                  <span
-                    className={`font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-                      kpi.positive ? "text-[#008e13]" : "text-[#8e1311]"
-                    }`}
-                  >
-                    {kpi.change}
-                  </span>
-                  <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
-                    vs {lowercaseFirstLetter(compareLabel)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </section>
-        ))}
+          {kpis.map((kpi) => (
+            <section
+              key={kpi.label}
+              className="flex min-w-0 flex-col gap-[10px] rounded-[12px] border border-[#e3e2dd] bg-white p-[16px] sm:h-[120px] sm:justify-between sm:gap-0"
+            >
+              <div className="flex items-center gap-[6px]">
+                <span className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+                  {kpi.label}
+                </span>
+                <InfoIcon tooltip={kpi.label} />
+              </div>
+              <div className="flex min-w-0 flex-col items-start gap-[4px]">
+                <span className="truncate font-['Inter:Semibold'] text-[24px] leading-[32px] text-[#22201f]">
+                  {isRefreshing ? <Sk w="w-[72px]" /> : kpi.value}
+                </span>
+                {showComparison && (
+                  <div className="flex items-center gap-[6px]">
+                    <span
+                      className={`font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
+                        kpi.positive ? "text-[#008e13]" : "text-[#8e1311]"
+                      }`}
+                    >
+                      {kpi.change}
+                    </span>
+                    <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
+                      vs {lowercaseFirstLetter(compareLabel)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
@@ -1316,177 +1339,241 @@ function OverviewV2Dashboard({
         {reorderableWidgetKeys.map(renderWidget)}
       </div>
 
-      {false && visibleWidgets.includes("hourly-sales") && <WidgetCard className="w-full">
-        <div className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-          <div className="mb-[8px] flex items-center gap-[8px]">
-            <h3 className="min-w-0 flex-1 font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
-              Hourly sales
-            </h3>
-            <MetricMoreMenu
-              onExportPng={() => {}}
-              onViewMethodology={() => {}}
-            />
-            <InfoIcon tooltip="Hourly sales compared with the previous period" />
-          </div>
-          <HourlySalesChart
-            compareLabel={compareLabel}
-            showComparison={showComparison}
-            isRefreshing={isRefreshing}
-            largeLabels
-          />
-          <button
-            type="button"
-            onClick={onHourlySalesDrillIn}
-            className="mt-[12px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
-          >
-            Drill in
-          </button>
-        </div>
-      </WidgetCard>}
-
-      {false && visibleWidgets.includes("breakdowns") && <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
-        {overviewV2Donuts.map((chart) => (
-          <OverviewV2DonutCard
-            key={chart.title}
-            {...chart}
-            isRefreshing={isRefreshing}
-          />
-        ))}
-      </div>}
-
-      {false && visibleWidgets.includes("top-products") && <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
-        {topCards.map((card) => (
-          <OverviewV2RankedCard
-            key={card.title}
-            {...card}
-            compareLabel={compareLabel}
-            showComparison={showComparison}
-            onSeeMore={() => selectProductSales(card.dimension)}
-          />
-        ))}
-      </div>}
-
-      {false && (tables.some((table) => visibleWidgets.includes(table.key)) || visibleWidgets.includes("order-source")) && <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
-        {tables.filter((table) => visibleWidgets.includes(table.key)).map((table) => (
-          <section
-            key={table.title}
-            className="min-w-0 rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]"
-          >
-            <div className="mb-[12px] flex items-center gap-[8px]">
-              <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
-                {table.title}
+      {false && visibleWidgets.includes("hourly-sales") && (
+        <WidgetCard className="w-full">
+          <div className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+            <div className="mb-[8px] flex items-center gap-[8px]">
+              <h3 className="min-w-0 flex-1 font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+                Hourly sales
               </h3>
-              <InfoIcon tooltip={table.title} />
+              <MetricMoreMenu
+                onExportPng={() => {}}
+                onViewMethodology={() => {}}
+              />
+              <InfoIcon tooltip="Hourly sales compared with the previous period" />
             </div>
-            <div className="mb-[12px]">
-              <p className="truncate font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#22201f]">
-                {table.rows[0][0]}
-              </p>
-              <div className="mt-[2px] flex flex-wrap items-center gap-[6px] text-[14px] leading-[20px]">
-                <span className="font-['Inter:Semibold'] text-[#22201f]">
-                  {table.rows[0][1]}
-                </span>
-                {table.rows[0][2] !== "—" && (
-                  <span
-                    className={`font-['Inter:Semibold'] font-semibold ${
-                      table.rows[0][2].startsWith("+")
-                        ? "text-[#008e13]"
-                        : "text-[#8e1311]"
-                    }`}
+            <HourlySalesChart
+              compareLabel={compareLabel}
+              showComparison={showComparison}
+              isRefreshing={isRefreshing}
+              largeLabels
+            />
+            <button
+              type="button"
+              onClick={onHourlySalesDrillIn}
+              className="mt-[12px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
+            >
+              Drill in
+            </button>
+          </div>
+        </WidgetCard>
+      )}
+
+      {false && visibleWidgets.includes("breakdowns") && (
+        <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
+          {overviewV2Donuts.map((chart) => (
+            <OverviewV2DonutCard
+              key={chart.title}
+              {...chart}
+              isRefreshing={isRefreshing}
+            />
+          ))}
+        </div>
+      )}
+
+      {false && visibleWidgets.includes("top-products") && (
+        <div className="grid grid-cols-1 items-stretch gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
+          {topCards.map((card) => (
+            <OverviewV2RankedCard
+              key={card.title}
+              {...card}
+              compareLabel={compareLabel}
+              showComparison={showComparison}
+              onSeeMore={() => selectProductSales(card.dimension)}
+            />
+          ))}
+        </div>
+      )}
+
+      {false &&
+        (tables.some((table) => visibleWidgets.includes(table.key)) ||
+          visibleWidgets.includes("order-source")) && (
+          <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
+            {tables
+              .filter((table) => visibleWidgets.includes(table.key))
+              .map((table) => (
+                <section
+                  key={table.title}
+                  className="min-w-0 rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]"
+                >
+                  <div className="mb-[12px] flex items-center gap-[8px]">
+                    <h3 className="min-w-0 flex-1 truncate font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+                      {table.title}
+                    </h3>
+                    <InfoIcon tooltip={table.title} />
+                  </div>
+                  <div className="mb-[12px]">
+                    <p className="truncate font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#22201f]">
+                      {table.rows[0][0]}
+                    </p>
+                    <div className="mt-[2px] flex flex-wrap items-center gap-[6px] text-[14px] leading-[20px]">
+                      <span className="font-['Inter:Semibold'] text-[#22201f]">
+                        {table.rows[0][1]}
+                      </span>
+                      {table.rows[0][2] !== "—" && (
+                        <span
+                          className={`font-['Inter:Semibold'] font-semibold ${
+                            table.rows[0][2].startsWith("+")
+                              ? "text-[#008e13]"
+                              : "text-[#8e1311]"
+                          }`}
+                        >
+                          {table.rows[0][2]}
+                        </span>
+                      )}
+                      {showComparison && (
+                        <span className="font-['Inter:Regular'] text-[#62615d]">
+                          vs {lowercaseFirstLetter(compareLabel)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    {table.rows.map(([name, value, change]) => (
+                      <div
+                        key={name}
+                        className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">
+                          {name}
+                        </span>
+                        <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
+                          {value}
+                        </span>
+                        <span
+                          className={`w-[56px] shrink-0 text-center font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
+                            change.startsWith("+")
+                              ? "text-[#008e13]"
+                              : change === "—"
+                                ? "text-[#62615d]"
+                                : "text-[#8e1311]"
+                          }`}
+                        >
+                          {change}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => selectProductSales(table.dimension)}
+                    className="mt-[6px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
                   >
-                    {table.rows[0][2]}
-                  </span>
-                )}
-                {showComparison && (
-                  <span className="font-['Inter:Regular'] text-[#62615d]">
-                    vs {lowercaseFirstLetter(compareLabel)}
-                  </span>
-                )}
-              </div>
-            </div>
+                    Drill in
+                  </button>
+                </section>
+              ))}
+            {visibleWidgets.includes("order-source") && (
+              <OverviewV2DonutCard
+                title="Sales by order source"
+                isRefreshing={isRefreshing}
+                segments={[
+                  {
+                    label: "Bopple",
+                    value: "$1,842.60",
+                    color: "#3390e0",
+                    share: 33,
+                  },
+                  {
+                    label: "Uber Eats",
+                    value: "$1,426.80",
+                    color: "#a367e8",
+                    share: 26,
+                  },
+                  {
+                    label: "DoorDash",
+                    value: "$986.40",
+                    color: "#9bd879",
+                    share: 18,
+                  },
+                  {
+                    label: "Lightspeed Online",
+                    value: "$742.20",
+                    color: "#ed8ddc",
+                    share: 13,
+                  },
+                  {
+                    label: "Deliveroo",
+                    value: "$518.50",
+                    color: "#f4a158",
+                    share: 10,
+                  },
+                ]}
+              />
+            )}
+          </div>
+        )}
+
+      {false && visibleWidgets.includes("discounts") && (
+        <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
+          <section className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+            <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+              Sales by discounts
+            </h3>
             <div className="flex flex-col">
-              {table.rows.map(([name, value, change]) => (
+              {[
+                ["Loyalty reward", "$1,284.20", "31 orders"],
+                ["Happy hour", "$846.50", "24 orders"],
+                ["Staff discount", "$218.40", "12 orders"],
+              ].map(([name, value, orders]) => (
                 <div
                   key={name}
-                  className="flex h-[44px] min-w-0 shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0"
+                  className="flex min-h-[44px] items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0"
                 >
                   <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">
                     {name}
                   </span>
-                  <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
+                  <span className="font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
                     {value}
                   </span>
-                  <span
-                    className={`w-[56px] shrink-0 text-center font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-                      change.startsWith("+")
-                        ? "text-[#008e13]"
-                        : change === "—"
-                          ? "text-[#62615d]"
-                          : "text-[#8e1311]"
-                    }`}
-                  >
-                    {change}
+                  <span className="w-[72px] text-right text-[12px] leading-[16px] text-[#62615d]">
+                    {orders}
                   </span>
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => selectProductSales(table.dimension)}
-              className="mt-[6px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
-            >
-              See more
-            </button>
           </section>
-        ))}
-        {visibleWidgets.includes("order-source") && (
-          <OverviewV2DonutCard
-            title="Sales by order source"
-            isRefreshing={isRefreshing}
-            segments={[
-              { label: "Bopple", value: "$1,842.60", color: "#3390e0", share: 33 },
-              { label: "Uber Eats", value: "$1,426.80", color: "#a367e8", share: 26 },
-              { label: "DoorDash", value: "$986.40", color: "#9bd879", share: 18 },
-              { label: "Lightspeed Online", value: "$742.20", color: "#ed8ddc", share: 13 },
-              { label: "Deliveroo", value: "$518.50", color: "#f4a158", share: 10 },
-            ]}
-          />
-        )}
-      </div>}
-
-      {false && visibleWidgets.includes("discounts") && (
-        <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
-        <section className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-          <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Sales by discounts</h3>
-          <div className="flex flex-col">
-            {[["Loyalty reward", "$1,284.20", "31 orders"], ["Happy hour", "$846.50", "24 orders"], ["Staff discount", "$218.40", "12 orders"]].map(([name, value, orders]) => (
-              <div key={name} className="flex min-h-[44px] items-center gap-[8px] border-b border-[#e3e2dd] px-[6px] last:border-b-0">
-                <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-[#22201f]">{name}</span>
-                <span className="font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">{value}</span>
-                <span className="w-[72px] text-right text-[12px] leading-[16px] text-[#62615d]">{orders}</span>
-              </div>
-            ))}
-          </div>
-        </section>
         </div>
       )}
 
       {false && visibleWidgets.includes("tax-rates") && (
         <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-3 sm:gap-[12px]">
-        <section className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-          <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Sales by tax rate</h3>
-          <div className="grid grid-cols-1 gap-[8px] sm:grid-cols-3">
-            {[["Standard rate", "10%", "$3,245.80"], ["Reduced rate", "5%", "$724.60"], ["Zero rate", "0%", "$212.20"]].map(([name, rate, value]) => (
-              <div key={name} className="flex flex-col gap-[8px] rounded-[8px] bg-[#f9f8f4] p-[12px]">
-                <span className="text-[12px] leading-[16px] text-[#62615d]">{name} · {rate}</span>
-                <span className="font-['Inter:Semibold'] text-[20px] leading-[28px] text-[#22201f]">{value}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+          <section className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
+            <h3 className="mb-[12px] font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+              Sales by tax rate
+            </h3>
+            <div className="grid grid-cols-1 gap-[8px] sm:grid-cols-3">
+              {[
+                ["Standard rate", "10%", "$3,245.80"],
+                ["Reduced rate", "5%", "$724.60"],
+                ["Zero rate", "0%", "$212.20"],
+              ].map(([name, rate, value]) => (
+                <div
+                  key={name}
+                  className="flex flex-col gap-[8px] rounded-[8px] bg-[#f9f8f4] p-[12px]"
+                >
+                  <span className="text-[12px] leading-[16px] text-[#62615d]">
+                    {name} · {rate}
+                  </span>
+                  <span className="font-['Inter:Semibold'] text-[20px] leading-[28px] text-[#22201f]">
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       )}
-
     </div>
   )
 }
@@ -1523,7 +1610,6 @@ function Sidebar({
             {([
               ["Overview", "Overview"],
               ["All reports", "All reports"],
-              ["Favourites", "Favourites"],
             ] as const).map(([label, report]) => (
               <React.Fragment key={report}>
                 <button
@@ -1718,15 +1804,15 @@ function DefaultFilterChip({
 
 // ─── Site Dropdown ───────────────────────────────────────────────────────────
 
-type SiteOption = { id: string; name: string; deleted?: boolean }
+type SiteOption = { id: string name: string deleted?: boolean }
 
 type ProductSalesView = {
   name: string
   salesBy: string
   sites: string[]
   registers: string[]
-  date: { id: string; label: string }
-  compare: { id: string; label: string }
+  date: { id: string label: string }
+  compare: { id: string label: string }
   products: string[]
   categories: string[]
   reportingGroups: string[]
@@ -1744,8 +1830,8 @@ type SalesOverviewView = {
   name: string
   sites: string[]
   registers: string[]
-  date: { id: string; label: string }
-  compare: { id: string; label: string }
+  date: { id: string label: string }
+  compare: { id: string label: string }
   tax: string
   createdBy?: string
   createdAt?: number
@@ -1766,11 +1852,11 @@ type SalesOverviewStorage = {
 type TransactionView = {
   name: string
   sites: string[]
-  date: { id: string; label: string }
+  date: { id: string label: string }
   paymentTypes: string[]
   customers: string[]
   statuses?: string[]
-  timeRange?: { from: string; to: string } | null
+  timeRange?: { from: string to: string } | null
   loyaltyMember?: "All" | "Yes" | "No"
   visibleFilters?: string[]
   terminals?: string[]
@@ -1837,7 +1923,8 @@ function loadTransactionColumns() {
 function loadTransactionColumnOrder() {
   try {
     const stored = JSON.parse(
-      window.localStorage.getItem(TRANSACTION_COLUMN_ORDER_STORAGE_KEY) ?? "null",
+      window.localStorage.getItem(TRANSACTION_COLUMN_ORDER_STORAGE_KEY) ??
+        "null",
     )
     if (Array.isArray(stored)) {
       return [
@@ -1951,29 +2038,31 @@ function SiteDropdown({
       </div>
       <div className="h-px w-full bg-[#e3e2dd]" />
       <div className="max-h-[320px] overflow-y-auto p-[4px]">
-        {SITE_OPTIONS.slice(1).filter((site) => !site.deleted).map((site) => (
-          <CheckboxMenuRow
-            key={site.id}
-            label={site.name}
-            checked={selectedIds.includes(site.id)}
-            onClick={() => onToggle(site.id)}
-          />
-        ))}
+        {SITE_OPTIONS.slice(1)
+          .filter((site) => !site.deleted)
+          .map((site) => (
+            <CheckboxMenuRow
+              key={site.id}
+              label={site.name}
+              checked={selectedIds.includes(site.id)}
+              onClick={() => onToggle(site.id)}
+            />
+          ))}
         {SITE_OPTIONS.filter((site) => site.deleted).length > 0 && (
-            <>
-              <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[#85837e] text-[11px] uppercase tracking-[0.04em]">
-                Deleted
-              </p>
-              {SITE_OPTIONS.filter((site) => site.deleted).map((site) => (
-                <CheckboxMenuRow
-                  key={site.id}
-                  label={site.name}
-                  checked={selectedIds.includes(site.id)}
-                  onClick={() => onToggle(site.id)}
-                />
-              ))}
-            </>
-          )}
+          <>
+            <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[#85837e] text-[11px] uppercase tracking-[0.04em]">
+              Deleted
+            </p>
+            {SITE_OPTIONS.filter((site) => site.deleted).map((site) => (
+              <CheckboxMenuRow
+                key={site.id}
+                label={site.name}
+                checked={selectedIds.includes(site.id)}
+                onClick={() => onToggle(site.id)}
+              />
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
@@ -2000,7 +2089,10 @@ function CheckboxMenuRow({
       role="checkbox"
       aria-checked={checked}
       onClick={onClick}
-      className={className ?? "flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"}
+      className={
+        className ??
+        "flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
+      }
     >
       {leading}
       <span
@@ -2078,7 +2170,7 @@ function CustomiseColumnsDrawer({
   onReorder,
   onClose,
 }: {
-  columns: Array<{ key: string; label: string }>
+  columns: Array<{ key: string label: string }>
   visibleKeys: string[]
   onToggle: (key: string) => void
   onReorder: (sourceKey: string, targetKey: string) => void
@@ -2143,25 +2235,43 @@ function CustomiseColumnsDrawer({
               }}
               onDrop={(event) => {
                 event.preventDefault()
-                const sourceKey = event.dataTransfer.getData("text/plain") || draggedKey
-                if (sourceKey && sourceKey !== column.key) onReorder(sourceKey, column.key)
+                const sourceKey =
+                  event.dataTransfer.getData("text/plain") || draggedKey
+                if (sourceKey && sourceKey !== column.key)
+                  onReorder(sourceKey, column.key)
                 setDraggedKey(null)
               }}
               onDragEnd={() => setDraggedKey(null)}
-              className={`flex min-h-[40px] items-center gap-[4px] rounded-[6px] px-[4px] ${draggedKey === column.key ? "opacity-40" : ""}`}
+              className={`flex min-h-[40px] items-center gap-[4px] rounded-[6px] px-[4px] ${
+                draggedKey === column.key ? "opacity-40" : ""
+              }`}
             >
               <CheckboxMenuRow
                 label={column.label}
                 checked={visibleKeys.includes(column.key)}
                 onClick={() => onToggle(column.key)}
                 className="flex min-w-0 flex-1 items-center gap-[10px] rounded-[6px] px-[8px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
-                leading={<span aria-label={`Drag to reorder ${column.label}`} className="flex size-[24px] shrink-0 cursor-grab items-center justify-center text-[#85837e] active:cursor-grabbing">
-                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <circle cx="5" cy="3" r="1" /><circle cx="11" cy="3" r="1" />
-                  <circle cx="5" cy="8" r="1" /><circle cx="11" cy="8" r="1" />
-                  <circle cx="5" cy="13" r="1" /><circle cx="11" cy="13" r="1" />
-                </svg>
-                </span>}
+                leading={
+                  <span
+                    aria-label={`Drag to reorder ${column.label}`}
+                    className="flex size-[24px] shrink-0 cursor-grab items-center justify-center text-[#85837e] active:cursor-grabbing"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="currentColor"
+                    >
+                      <circle cx="5" cy="3" r="1" />
+                      <circle cx="11" cy="3" r="1" />
+                      <circle cx="5" cy="8" r="1" />
+                      <circle cx="11" cy="8" r="1" />
+                      <circle cx="5" cy="13" r="1" />
+                      <circle cx="11" cy="13" r="1" />
+                    </svg>
+                  </span>
+                }
               />
             </div>
           ))}
@@ -2247,10 +2357,23 @@ function TransactionOptionDropdown({
           onClick={onBack}
           className="flex h-[40px] w-full shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[8px] text-left"
         >
-          <svg aria-hidden="true" className="size-[16px] shrink-0" viewBox="0 0 16 16" fill="none">
-            <path d="m10 3-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            aria-hidden="true"
+            className="size-[16px] shrink-0"
+            viewBox="0 0 16 16"
+            fill="none"
+          >
+            <path
+              d="m10 3-5 5 5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
-          <span className="font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Select {label.toLowerCase()}</span>
+          <span className="font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+            Select {label.toLowerCase()}
+          </span>
         </button>
       )}
       <div className="shrink-0 border-b border-[#e3e2dd] p-[4px]">
@@ -2266,12 +2389,20 @@ function TransactionOptionDropdown({
           onClick={onToggleIncludeDeletedOptions}
           className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
         >
-          <span className={`flex size-[16px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] ${includeDeletedOptions ? "" : "border border-[#bbbab6] bg-white"}`}>
-            {includeDeletedOptions && <img alt="" className="size-full" src={imgChecked} />}
+          <span
+            className={`flex size-[16px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] ${
+              includeDeletedOptions ? "" : "border border-[#bbbab6] bg-white"
+            }`}
+          >
+            {includeDeletedOptions && (
+              <img alt="" className="size-full" src={imgChecked} />
+            )}
           </span>
           <span className="flex min-w-0 flex-1 items-center gap-[4px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f]">
             {includeDeletedLabel}
-            <InfoIcon tooltip={`Include all deleted ${label.toLowerCase()} options in this report`} />
+            <InfoIcon
+              tooltip={`Include all deleted ${label.toLowerCase()} options in this report`}
+            />
           </span>
         </button>
       </div>
@@ -2296,7 +2427,9 @@ function TransactionOptionDropdown({
         ))}
         {visibleDeletedOptions.length > 0 && (
           <>
-            <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[11px] uppercase tracking-[0.04em] text-[#85837e]">Deleted</p>
+            <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[11px] uppercase tracking-[0.04em] text-[#85837e]">
+              Deleted
+            </p>
             {visibleDeletedOptions.map((option) => (
               <CheckboxMenuRow
                 key={option}
@@ -2308,7 +2441,9 @@ function TransactionOptionDropdown({
           </>
         )}
         {filteredOptions.length === 0 && visibleDeletedOptions.length === 0 && (
-          <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">No matching {label.toLowerCase()} options</p>
+          <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
+            No matching {label.toLowerCase()} options
+          </p>
         )}
       </div>
     </div>
@@ -2345,11 +2480,12 @@ function ProductSalesOptionDropdown({
   const filteredDeletedOptions = deletedOptions.filter((option) =>
     option.toLowerCase().includes(query.toLowerCase()),
   )
-  const pluralLabel = label === "Category"
-    ? "categories"
-    : label === "Reporting group"
-      ? "reporting groups"
-      : `${label.toLowerCase()}s`
+  const pluralLabel =
+    label === "Category"
+      ? "categories"
+      : label === "Reporting group"
+        ? "reporting groups"
+        : `${label.toLowerCase()}s`
 
   return (
     <div
@@ -2362,10 +2498,23 @@ function ProductSalesOptionDropdown({
           onClick={onBack}
           className="flex h-[40px] w-full shrink-0 items-center gap-[8px] border-b border-[#e3e2dd] px-[8px] text-left"
         >
-          <svg aria-hidden="true" className="size-[16px] shrink-0" viewBox="0 0 16 16" fill="none">
-            <path d="m10 3-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            aria-hidden="true"
+            className="size-[16px] shrink-0"
+            viewBox="0 0 16 16"
+            fill="none"
+          >
+            <path
+              d="m10 3-5 5 5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
-          <span className="font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">Select {label.toLowerCase()}</span>
+          <span className="font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
+            Select {label.toLowerCase()}
+          </span>
         </button>
       )}
       <div className="shrink-0 border-b border-[#e3e2dd] p-[4px]">
@@ -2381,12 +2530,20 @@ function ProductSalesOptionDropdown({
           onClick={onToggleIncludeDeleted}
           className="flex w-full items-center gap-[10px] rounded-[6px] px-[12px] py-[8px] text-left transition-colors hover:bg-[#f9f8f4]"
         >
-          <span className={`flex size-[16px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] ${includeDeleted ? "" : "border border-[#bbbab6] bg-white"}`}>
-            {includeDeleted && <img alt="" className="size-full" src={imgChecked} />}
+          <span
+            className={`flex size-[16px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] ${
+              includeDeleted ? "" : "border border-[#bbbab6] bg-white"
+            }`}
+          >
+            {includeDeleted && (
+              <img alt="" className="size-full" src={imgChecked} />
+            )}
           </span>
           <span className="flex min-w-0 flex-1 items-center gap-[4px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f]">
             Include deleted {pluralLabel}
-            <InfoIcon tooltip={`Include deleted ${pluralLabel} in this report`} />
+            <InfoIcon
+              tooltip={`Include deleted ${pluralLabel} in this report`}
+            />
           </span>
         </button>
       </div>
@@ -2409,30 +2566,35 @@ function ProductSalesOptionDropdown({
             onClick={() => onToggle(option)}
           />
         ))}
-        {includeDeleted && (filteredDeletedOptions.length > 0 || label === "Product") && (
-          <>
-            <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[11px] uppercase tracking-[0.04em] text-[#85837e]">Deleted</p>
-            {filteredDeletedOptions.length > 0 ? (
-              filteredDeletedOptions.map((option) => (
-                <CheckboxMenuRow
-                  key={option}
-                  label={option}
-                  checked={selected.includes(option)}
-                  onClick={() => onToggle(option)}
-                />
-              ))
-            ) : label === "Product" ? (
-              <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
-                No deleted products
+        {includeDeleted &&
+          (filteredDeletedOptions.length > 0 || label === "Product") && (
+            <>
+              <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[11px] uppercase tracking-[0.04em] text-[#85837e]">
+                Deleted
               </p>
-            ) : null}
-          </>
-        )}
+              {filteredDeletedOptions.length > 0 ? (
+                filteredDeletedOptions.map((option) => (
+                  <CheckboxMenuRow
+                    key={option}
+                    label={option}
+                    checked={selected.includes(option)}
+                    onClick={() => onToggle(option)}
+                  />
+                ))
+              ) : label === "Product" ? (
+                <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
+                  No deleted products
+                </p>
+              ) : null}
+            </>
+          )}
         {filteredOptions.length === 0 &&
           (!includeDeleted ||
             (filteredDeletedOptions.length === 0 && label !== "Product")) && (
-          <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">No matching {label.toLowerCase()} options</p>
-        )}
+            <p className="px-[12px] py-[8px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
+              No matching {label.toLowerCase()} options
+            </p>
+          )}
       </div>
     </div>
   )
@@ -2461,13 +2623,12 @@ function RegisterDropdown({
   useDropdownClose(ref, onClose)
   const [query, setQuery] = useState("")
   const options = selectedSites.flatMap((site) =>
-    (REGISTERS_BY_SITE[site.id] ?? [])
-      .map((name) => ({
-        key: `${site.id}:${name}`,
-        site: site.name,
-        name,
-        deleted: DELETED_TERMINAL_OPTION_SET.has(name),
-      })),
+    (REGISTERS_BY_SITE[site.id] ?? []).map((name) => ({
+      key: `${site.id}:${name}`,
+      site: site.name,
+      name,
+      deleted: DELETED_TERMINAL_OPTION_SET.has(name),
+    })),
   )
   const filteredOptions = options.filter((option) =>
     `${option.site} ${option.name}`.toLowerCase().includes(query.toLowerCase()),
@@ -2558,27 +2719,33 @@ function RegisterDropdown({
                 <p className="px-[12px] py-[8px] font-['Inter:Medium'] text-[#62615d] text-[14px] leading-[20px]">
                   {site.name}
                 </p>
-                {siteOptions.filter((option) => !option.deleted).map((option) => (
-                  <CheckboxMenuRow
-                    key={option.key}
-                    label={option.name}
-                    checked={selectedRegisters.includes(option.key)}
-                    onClick={() => onToggle(option.key)}
-                  />
-                ))}
+                {siteOptions
+                  .filter((option) => !option.deleted)
+                  .map((option) => (
+                    <CheckboxMenuRow
+                      key={option.key}
+                      label={option.name}
+                      checked={selectedRegisters.includes(option.key)}
+                      onClick={() => onToggle(option.key)}
+                    />
+                  ))}
                 {siteOptions.some((option) => option.deleted) && (
                   <>
                     <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[11px] uppercase tracking-[0.04em] text-[#85837e]">
                       Deleted
                     </p>
-                    {siteOptions.filter((option) => option.deleted && includeDeletedRegisters).map((option) => (
-                      <CheckboxMenuRow
-                        key={option.key}
-                        label={option.name}
-                        checked={selectedRegisters.includes(option.key)}
-                        onClick={() => onToggle(option.key)}
-                      />
-                    ))}
+                    {siteOptions
+                      .filter(
+                        (option) => option.deleted && includeDeletedRegisters,
+                      )
+                      .map((option) => (
+                        <CheckboxMenuRow
+                          key={option.key}
+                          label={option.name}
+                          checked={selectedRegisters.includes(option.key)}
+                          onClick={() => onToggle(option.key)}
+                        />
+                      ))}
                   </>
                 )}
               </div>
@@ -2586,27 +2753,31 @@ function RegisterDropdown({
           })
         ) : (
           <>
-            {filteredOptions.filter((option) => !option.deleted).map((option) => (
-              <CheckboxMenuRow
-                key={option.key}
-                label={option.name}
-                checked={selectedRegisters.includes(option.key)}
-                onClick={() => onToggle(option.key)}
-              />
-            ))}
+            {filteredOptions
+              .filter((option) => !option.deleted)
+              .map((option) => (
+                <CheckboxMenuRow
+                  key={option.key}
+                  label={option.name}
+                  checked={selectedRegisters.includes(option.key)}
+                  onClick={() => onToggle(option.key)}
+                />
+              ))}
             {options.some((option) => option.deleted) && (
               <>
                 <p className="px-[12px] pb-[4px] pt-[10px] font-['Inter:Medium'] text-[11px] uppercase tracking-[0.04em] text-[#85837e]">
                   Deleted
                 </p>
-                {filteredOptions.filter((option) => option.deleted && includeDeletedRegisters).map((option) => (
-                  <CheckboxMenuRow
-                    key={option.key}
-                    label={option.name}
-                    checked={selectedRegisters.includes(option.key)}
-                    onClick={() => onToggle(option.key)}
-                  />
-                ))}
+                {filteredOptions
+                  .filter((option) => option.deleted && includeDeletedRegisters)
+                  .map((option) => (
+                    <CheckboxMenuRow
+                      key={option.key}
+                      label={option.name}
+                      checked={selectedRegisters.includes(option.key)}
+                      onClick={() => onToggle(option.key)}
+                    />
+                  ))}
               </>
             )}
           </>
@@ -2975,7 +3146,8 @@ function AddFilterDropdown({
   const activeDeletedOptions = activeFilter
     ? (deletedOptions[activeFilter] ?? [])
     : []
-  const activeFilterLabel = activeFilter === "Terminal" ? "Register" : activeFilter
+  const activeFilterLabel =
+    activeFilter === "Terminal" ? "Register" : activeFilter
   const filteredOptions = options.filter((option) =>
     option.toLowerCase().includes(query.toLowerCase()),
   )
@@ -3029,13 +3201,23 @@ function AddFilterDropdown({
       <TransactionOptionDropdown
         label={activeFilter}
         allLabel={isOrderType ? "All order types" : "All sources"}
-        includeDeletedLabel={isOrderType ? "Include deleted order types" : "Include deleted sources"}
+        includeDeletedLabel={
+          isOrderType
+            ? "Include deleted order types"
+            : "Include deleted sources"
+        }
         options={filterOptions[activeFilter] ?? []}
         deletedOptions={deletedOptions[activeFilter] ?? []}
         selected={selectedValues[activeFilter] ?? []}
         onToggle={isOrderType ? onToggleOrderType : onToggleSource}
-        includeDeletedOptions={isOrderType ? includeDeletedOrderTypes : includeDeletedSources}
-        onToggleIncludeDeletedOptions={isOrderType ? onToggleIncludeDeletedOrderTypes : onToggleIncludeDeletedSources}
+        includeDeletedOptions={
+          isOrderType ? includeDeletedOrderTypes : includeDeletedSources
+        }
+        onToggleIncludeDeletedOptions={
+          isOrderType
+            ? onToggleIncludeDeletedOrderTypes
+            : onToggleIncludeDeletedSources
+        }
         onClose={onClose}
         onBack={() => {
           setActiveFilter(null)
@@ -3049,11 +3231,15 @@ function AddFilterDropdown({
     return (
       <ProductSalesOptionDropdown
         label={activeFilter}
-        options={(filterOptions[activeFilter] ?? []).filter((option) => option !== "All")}
+        options={(filterOptions[activeFilter] ?? []).filter(
+          (option) => option !== "All",
+        )}
         selected={selectedValues[activeFilter] ?? []}
         onToggle={(value) => onToggleImmediateFilter(activeFilter, value)}
         includeDeleted={includeDeletedImmediateFilters[activeFilter] ?? true}
-        onToggleIncludeDeleted={() => onToggleIncludeDeletedImmediateFilter(activeFilter)}
+        onToggleIncludeDeleted={() =>
+          onToggleIncludeDeletedImmediateFilter(activeFilter)
+        }
         onClose={onClose}
         onBack={() => {
           setActiveFilter(null)
@@ -3123,39 +3309,39 @@ function AddFilterDropdown({
           {searchableFilters.includes(activeFilter) &&
             activeFilter !== "Register" &&
             activeFilter !== "Terminal" && (
-            <div className="px-[8px] pb-[4px] pt-[8px]">
-              <label className="flex h-[40px] items-center gap-[8px] rounded-[8px] border border-[#bbbab6] px-[12px]">
-                <svg
-                  aria-hidden="true"
-                  className="size-[16px] shrink-0 text-[#22201f]"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                >
-                  <circle
-                    cx="7"
-                    cy="7"
-                    r="4.5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
+              <div className="px-[8px] pb-[4px] pt-[8px]">
+                <label className="flex h-[40px] items-center gap-[8px] rounded-[8px] border border-[#bbbab6] px-[12px]">
+                  <svg
+                    aria-hidden="true"
+                    className="size-[16px] shrink-0 text-[#22201f]"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                  >
+                    <circle
+                      cx="7"
+                      cy="7"
+                      r="4.5"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="m10.5 10.5 3 3"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    aria-label={`Search ${activeFilterLabel}`}
+                    autoFocus
+                    placeholder="Search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="min-w-0 flex-1 bg-transparent font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] outline-none placeholder:text-[#aaaba6]"
                   />
-                  <path
-                    d="m10.5 10.5 3 3"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <input
-                  aria-label={`Search ${activeFilterLabel}`}
-                  autoFocus
-                  placeholder="Search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  className="min-w-0 flex-1 bg-transparent font-['Inter:Regular'] text-[#22201f] text-[14px] leading-[20px] outline-none placeholder:text-[#aaaba6]"
-                />
-              </label>
-            </div>
-          )}
+                </label>
+              </div>
+            )}
           <div className="max-h-[280px] overflow-y-auto p-[4px]">
             {activeFilter === "Loyalty member" ? (
               filteredOptions.map((option) => (
@@ -3484,7 +3670,7 @@ function TransactionDateDropdown({
   )
 }
 
-type TransactionTimeRange = { from: string; to: string }
+type TransactionTimeRange = { from: string to: string }
 
 function formatTransactionTime(value: string) {
   const [hours, minutes] = value.split(":").map(Number)
@@ -3503,7 +3689,20 @@ function getTransactionTimeMinutes(dateTime: string) {
 function parseTransactionDate(dateTime: string) {
   const match = dateTime.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/)
   if (!match) return null
-  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(match[2])
+  const month = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ].indexOf(match[2])
   return month < 0 ? null : new Date(Number(match[3]), month, Number(match[1]))
 }
 
@@ -3868,7 +4067,9 @@ function getDateRangeLabel(id: string, _dateId?: string): string {
         const end = new Date(t.getFullYear() - 1, t.getMonth(), t.getDate())
         return `${fmtShort(start)} – ${fmtShort(end)}`
       }
-      if (["past-week", "past-4-weeks", "past-12-weeks"].includes(_dateId ?? "")) {
+      if (
+        ["past-week", "past-4-weeks", "past-12-weeks"].includes(_dateId ?? "")
+      ) {
         const days =
           _dateId === "past-week" ? 6 : _dateId === "past-4-weeks" ? 27 : 83
         const start = addDays(t, -days)
@@ -3883,7 +4084,11 @@ function getDateRangeLabel(id: string, _dateId?: string): string {
       }
       if (_dateId === "past-6-months" || _dateId === "past-12-months") {
         const months = _dateId === "past-6-months" ? 6 : 12
-        const start = new Date(t.getFullYear(), t.getMonth() - months, t.getDate())
+        const start = new Date(
+          t.getFullYear(),
+          t.getMonth() - months,
+          t.getDate(),
+        )
         const end = new Date(t)
         start.setFullYear(start.getFullYear() - 1)
         end.setFullYear(end.getFullYear() - 1)
@@ -3899,7 +4104,7 @@ function getDateRangeLabel(id: string, _dateId?: string): string {
 
 // ─── Compare To Dropdown ──────────────────────────────────────────────────────
 
-const COMPARE_TO_OPTIONS: Record<string, Array<{ id: string; label: string }>> =
+const COMPARE_TO_OPTIONS: Record<string, Array<{ id: string label: string }>> =
   {
     today: [
       { id: "last-same-day", label: "Last Tuesday" },
@@ -4212,8 +4417,12 @@ const PREV_DATA = [
   100, 155, 270, 360, 430, 490, 530, 570, 600, 630, 670, 640, 580, 510, 420,
   280,
 ]
-const CURRENT_ORDER_DATA = [7, 10, 16, 20, 24, 27, 30, 32, 34, 36, 38, 36, 32, 28, 23, 15]
-const PREV_ORDER_DATA = [6, 9, 14, 18, 21, 24, 27, 29, 31, 33, 35, 33, 29, 25, 20, 13]
+const CURRENT_ORDER_DATA = [
+  7, 10, 16, 20, 24, 27, 30, 32, 34, 36, 38, 36, 32, 28, 23, 15,
+]
+const PREV_ORDER_DATA = [
+  6, 9, 14, 18, 21, 24, 27, 29, 31, 33, 35, 33, 29, 25, 20, 13,
+]
 type HourlySalesMetric = "Sale amount" | "Order count" | "Average sale"
 
 function getHourlyMetricData(metric: HourlySalesMetric) {
@@ -4222,8 +4431,12 @@ function getHourlyMetricData(metric: HourlySalesMetric) {
   }
   if (metric === "Average sale") {
     return {
-      current: CURRENT_DATA.map((amount, index) => amount / CURRENT_ORDER_DATA[index]),
-      previous: PREV_DATA.map((amount, index) => amount / PREV_ORDER_DATA[index]),
+      current: CURRENT_DATA.map(
+        (amount, index) => amount / CURRENT_ORDER_DATA[index],
+      ),
+      previous: PREV_DATA.map(
+        (amount, index) => amount / PREV_ORDER_DATA[index],
+      ),
     }
   }
   return { current: CURRENT_DATA, previous: PREV_DATA }
@@ -4250,7 +4463,8 @@ function HourlySalesChart({
 }) {
   const [hovered, setHovered] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
-  const { current: currentData, previous: previousData } = getHourlyMetricData(metric)
+  const { current: currentData, previous: previousData } =
+    getHourlyMetricData(metric)
   const W = 600,
     H = 161
   const PAD_T = 8,
@@ -4508,8 +4722,8 @@ function HourlySalesTable({
   isRefreshing,
   metric,
 }: {
-  dateSelected: { id: string; label: string }
-  compareSelected: { id: string; label: string }
+  dateSelected: { id: string label: string }
+  compareSelected: { id: string label: string }
   showComparison: boolean
   isRefreshing: boolean
   metric: HourlySalesMetric
@@ -4525,7 +4739,7 @@ function HourlySalesTable({
   const previousOrders = getHourlyMetricData("Order count").previous
   const chartHours = new Map(
     Array.from({ length: currentData.length / 2 }, (_, index) => [
-      Number(HALF_HOURS[index * 2].match(/^(\d+):/)?.[1]) % 12 +
+      (Number(HALF_HOURS[index * 2].match(/^(\d+):/)?.[1]) % 12) +
         (HALF_HOURS[index * 2].includes("PM") ? 12 : 0),
       {
         current:
@@ -4575,15 +4789,26 @@ function HourlySalesTable({
             const difference =
               previous === 0 ? null : ((current - previous) / previous) * 100
             return (
-              <tr key={hour} className="h-[44px] border-b border-[#e3e2dd] last:border-b-0">
+              <tr
+                key={hour}
+                className="h-[44px] border-b border-[#e3e2dd] last:border-b-0"
+              >
                 <td className="px-[16px]">{hour}</td>
                 <td className="px-[12px] text-left font-['Inter:Regular']">
-                  {isRefreshing ? <Sk w="w-[64px]" /> : formatHourlyMetric(current, metric)}
+                  {isRefreshing ? (
+                    <Sk w="w-[64px]" />
+                  ) : (
+                    formatHourlyMetric(current, metric)
+                  )}
                 </td>
                 {showComparison && (
                   <>
                     <td className="px-[12px] text-left font-['Inter:Regular']">
-                      {isRefreshing ? <Sk w="w-[64px]" /> : formatHourlyMetric(previous, metric)}
+                      {isRefreshing ? (
+                        <Sk w="w-[64px]" />
+                      ) : (
+                        formatHourlyMetric(previous, metric)
+                      )}
                     </td>
                     <td
                       className={`px-[16px] text-left font-['Inter:Regular'] ${
@@ -4594,9 +4819,15 @@ function HourlySalesTable({
                             : "text-[#8e1311]"
                       }`}
                     >
-                      {isRefreshing || difference === null
-                        ? isRefreshing ? <Sk w="w-[48px]" /> : "—"
-                        : `${difference > 0 ? "+" : ""}${difference.toFixed(1)}%`}
+                      {isRefreshing || difference === null ? (
+                        isRefreshing ? (
+                          <Sk w="w-[48px]" />
+                        ) : (
+                          "—"
+                        )
+                      ) : (
+                        `${difference > 0 ? "+" : ""}${difference.toFixed(1)}%`
+                      )}
                     </td>
                   </>
                 )}
@@ -4609,7 +4840,7 @@ function HourlySalesTable({
   )
 }
 
-function Sk({ w, h = "h-[16px]" }: { w: string; h?: string }) {
+function Sk({ w, h = "h-[16px]" }: { w: string h?: string }) {
   return <span className={`skeleton ${w} ${h} align-middle`} />
 }
 
@@ -4834,7 +5065,7 @@ function TopListCard({
           onClick={onSeeMore}
           className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline"
         >
-          See more
+          Drill in
         </button>
       </div>
     </WidgetCard>
@@ -5034,7 +5265,7 @@ function SaveViewModal({
         <div className="flex flex-col gap-[4px]">
           <div className="flex gap-[16px] items-start">
             <p className="font-['Inter:Semibold'] text-[#22201f] text-[18px] leading-[32px] flex-1 min-w-0">
-              Save report
+              Save view
             </p>
             <button
               onClick={onClose}
@@ -5487,7 +5718,7 @@ const prototypeVersions = [
   },
   {
     version: "Version 4",
-    updated: "19 October 2026",
+    updated: "6 October 2026",
     description: "A duplicate of Version 3B for continued exploration.",
     href: `${import.meta.env.BASE_URL}version-4`,
   },
@@ -5595,21 +5826,11 @@ function ReportsPrototype() {
   const initialSalesDefault = initialSalesStorage.savedFilters.find(
     (view) => view.name === initialSalesStorage.defaultView,
   )
-  const [favouriteReportIds, setFavouriteReportIds] = useState<string[]>(() => {
-    try {
-      const stored = window.sessionStorage.getItem(
-        "reports-bo:version-4:favourites",
-      )
-      return stored ? JSON.parse(stored) as string[] : []
-    } catch {
-      return []
-    }
-  })
   const [activeReport, setActiveReport] = useState<ReportName>("Overview")
   const [activeReportsNavigation, setActiveReportsNavigation] =
     useState<"All reports" | null>(null)
   const [reportReturnPage, setReportReturnPage] =
-    useState<"All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports">(
+    useState<"All reports" | "Lightspeed reports" | "Shared reports" | "My reports">(
       "All reports",
     )
   const [productSalesEntryDimension, setProductSalesEntryDimension] =
@@ -5623,16 +5844,16 @@ function ReportsPrototype() {
     useState(false)
   const [showProductSalesActionsMenu, setShowProductSalesActionsMenu] =
     useState(false)
-  const [showOverviewActionsMenu, setShowOverviewActionsMenu] =
-    useState(false)
+  const [showOverviewActionsMenu, setShowOverviewActionsMenu] = useState(false)
   const [isCustomiseDashboardOpen, setIsCustomiseDashboardOpen] =
     useState(false)
-  const [visibleOverviewWidgets, setVisibleOverviewWidgets] = useState<string[]>(
-    defaultOverviewDashboardWidgets,
-  )
+  const [visibleOverviewWidgets, setVisibleOverviewWidgets] =
+    useState<string[]>(defaultOverviewDashboardWidgets)
   const [showSalesFeedSaveReport, setShowSalesFeedSaveReport] = useState(false)
-  const [showProductSalesSaveReport, setShowProductSalesSaveReport] = useState(false)
-  const [isTransactionInvoiceOpen, setIsTransactionInvoiceOpen] = useState(false)
+  const [showProductSalesSaveReport, setShowProductSalesSaveReport] =
+    useState(false)
+  const [isTransactionInvoiceOpen, setIsTransactionInvoiceOpen] =
+    useState(false)
   const savedViewMenuRef = useRef<HTMLDivElement>(null)
   const overviewActionsMenuRef = useRef<HTMLDivElement>(null)
   const savedViewHeaderActions = useRef<SavedViewHeaderActions | null>(null)
@@ -5653,8 +5874,7 @@ function ReportsPrototype() {
   const [hourlySalesMetric, setHourlySalesMetric] =
     useState<HourlySalesMetric>("Sale amount")
   const [showDeletedSites, setShowDeletedSites] = useState(true)
-  const [includeDeletedRegisters, setIncludeDeletedRegisters] =
-    useState(true)
+  const [includeDeletedRegisters, setIncludeDeletedRegisters] = useState(true)
   const [compareSelected, setCompareSelected] = useState<{
     id: string
     label: string
@@ -5839,45 +6059,16 @@ function ReportsPrototype() {
     setActiveReportsNavigation("All reports")
   }
 
-  function toggleReportFavourite(report: DirectoryReport) {
-    const isFavourited = favouriteReportIds.includes(report.id)
-    const next = isFavourited
-      ? favouriteReportIds.filter((id) => id !== report.id)
-      : [...favouriteReportIds, report.id]
-    setFavouriteReportIds(next)
-    try {
-      window.sessionStorage.setItem(
-        "reports-bo:version-4:favourites",
-        JSON.stringify(next),
-      )
-    } catch {
-      // Favourites remain available for the current render if session storage is unavailable.
-    }
-  }
-
-  function showFavouriteSuccess(report: DirectoryReport) {
-    setToast({
-      message: `"${report.title}" added to Favourites.`,
-      actionLabel: "Go to favourites",
-      onAction: () => {
-        setActiveReport("Favourites")
-        setActiveReportsNavigation(null)
-        setRequestedSavedViewName(null)
-        setSelectedDirectoryReport(null)
-      },
-    })
-  }
-
   function selectDirectoryReport(
     report: DirectoryReport,
-    source: "All reports" | "Favourites" | "Lightspeed reports" | "Shared reports" | "My reports",
+    source: "All reports" | "Lightspeed reports" | "Shared reports" | "My reports",
   ) {
     setReportReturnPage(
       source === "All reports" ? "Lightspeed reports" : source,
     )
     selectReport(report.report)
     setSelectedDirectoryReport(report)
-    setActiveReportsNavigation(source === "Favourites" ? null : "All reports")
+    setActiveReportsNavigation("All reports")
     setRequestedSavedViewName(report.viewName ?? null)
     if (report.viewName && report.report === "Overview") {
       const view = savedFilters.find(
@@ -6077,8 +6268,20 @@ function ReportsPrototype() {
                   }}
                   className="flex h-[32px] shrink-0 items-center gap-[4px] rounded-[8px] px-[8px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f2f0ea]"
                 >
-                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="m10 3-5 5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    aria-hidden="true"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                  >
+                    <path
+                      d="m10 3-5 5 5 5"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                   Back
                 </button>
@@ -6094,9 +6297,7 @@ function ReportsPrototype() {
                     onClick={() => {
                       setShowSavedViewMenu(false)
                       setActiveReport(reportReturnPage)
-                      setActiveReportsNavigation(
-                        reportReturnPage === "Favourites" ? null : "All reports",
-                      )
+                      setActiveReportsNavigation("All reports")
                       setRequestedSavedViewName(null)
                       setSelectedDirectoryReport(null)
                       savedViewHeaderActions.current = null
@@ -6121,19 +6322,28 @@ function ReportsPrototype() {
                     Back
                   </button>
                 )}
-                <span className={`${isTransactionInvoiceOpen && activeReport === "Transactions" ? "static translate-x-0" : "absolute left-1/2 -translate-x-1/2"} flex max-w-[60%] items-center gap-[8px]`}>
+                <span
+                  className={`${
+                    isTransactionInvoiceOpen && activeReport === "Transactions"
+                      ? "static translate-x-0"
+                      : "absolute left-1/2 -translate-x-1/2"
+                  } flex max-w-[60%] items-center gap-[8px]`}
+                >
                   <span className="truncate font-['Inter:Semibold'] text-[16px] leading-[24px] text-[#22201f]">
                     {isTransactionInvoiceOpen && activeReport === "Transactions"
                       ? "Tax invoice"
                       : selectedDirectoryReport.title}
                   </span>
-                {!isTransactionInvoiceOpen && selectedDirectoryReport.legacy && (
-                    <span className="shrink-0 rounded-[4px] bg-[#f2f0ea] px-[6px] py-[2px] font-['Inter:Medium'] text-[11px] leading-[16px] text-[#62615d]">
-                      Legacy
-                    </span>
-                  )}
+                  {!isTransactionInvoiceOpen &&
+                    selectedDirectoryReport.legacy && (
+                      <span className="shrink-0 rounded-[4px] bg-[#f2f0ea] px-[6px] py-[2px] font-['Inter:Medium'] text-[11px] leading-[16px] text-[#62615d]">
+                        Legacy
+                      </span>
+                    )}
                 </span>
-                {((activeReport === "Transactions" && !isTransactionInvoiceOpen) || activeReport === "Product sales") ? (
+                {(activeReport === "Transactions" &&
+                  !isTransactionInvoiceOpen) ||
+                activeReport === "Product sales" ? (
                   <div className="ml-auto flex shrink-0 items-center gap-[8px]">
                     {(activeReport === "Transactions"
                       ? showSalesFeedSaveReport
@@ -6143,62 +6353,70 @@ function ReportsPrototype() {
                         onClick={() => savedViewHeaderActions.current?.save?.()}
                         className="flex h-[32px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
                       >
-                        Save report
+                        Save view
                       </button>
                     )}
                     <>
-                    <button
-                      type="button"
-                      aria-label="Export"
-                      onClick={() => savedViewHeaderActions.current?.export?.()}
-                      className="flex h-[32px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
-                    >
-                      Export
-                    </button>
-                    <div className="relative" ref={savedViewMenuRef}>
                       <button
                         type="button"
-                        aria-label="More options"
-                        aria-haspopup="menu"
-                        aria-expanded={activeReport === "Transactions" ? showSalesFeedActionsMenu : showProductSalesActionsMenu}
+                        aria-label="Export"
                         onClick={() =>
-                          activeReport === "Transactions"
-                            ? setShowSalesFeedActionsMenu((open) => !open)
-                            : setShowProductSalesActionsMenu((open) => !open)
+                          savedViewHeaderActions.current?.export?.()
                         }
-                        className="flex size-[32px] items-center justify-center rounded-full text-[#22201f] transition-colors hover:bg-[#f4f3ef]"
+                        className="flex h-[32px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
                       >
-                        <svg
-                          aria-hidden="true"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="currentColor"
-                        >
-                          <circle cx="3" cy="8" r="1.25" />
-                          <circle cx="8" cy="8" r="1.25" />
-                          <circle cx="13" cy="8" r="1.25" />
-                        </svg>
+                        Export
                       </button>
-                      {(activeReport === "Transactions" ? showSalesFeedActionsMenu : showProductSalesActionsMenu) && (
-                        <div
-                          role="menu"
-                          className="absolute right-0 top-[40px] z-50 w-[200px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_8px_0px_rgba(18,18,18,0.12)]"
+                      <div className="relative" ref={savedViewMenuRef}>
+                        <button
+                          type="button"
+                          aria-label="More options"
+                          aria-haspopup="menu"
+                          aria-expanded={
+                            activeReport === "Transactions"
+                              ? showSalesFeedActionsMenu
+                              : showProductSalesActionsMenu
+                          }
+                          onClick={() =>
+                            activeReport === "Transactions"
+                              ? setShowSalesFeedActionsMenu((open) => !open)
+                              : setShowProductSalesActionsMenu((open) => !open)
+                          }
+                          className="flex size-[32px] items-center justify-center rounded-full text-[#22201f] transition-colors hover:bg-[#f4f3ef]"
                         >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                              if (activeReport === "Transactions")
-                                setShowSalesFeedActionsMenu(false)
-                              else setShowProductSalesActionsMenu(false)
-                              savedViewHeaderActions.current?.customiseColumns?.()
-                            }}
-                            className="flex h-[36px] w-full items-center rounded-[4px] px-[10px] text-left font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f9f8f4]"
+                          <svg
+                            aria-hidden="true"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
                           >
-                            Customise columns
-                          </button>
-                          {requestedSavedViewName && (
+                            <circle cx="3" cy="8" r="1.25" />
+                            <circle cx="8" cy="8" r="1.25" />
+                            <circle cx="13" cy="8" r="1.25" />
+                          </svg>
+                        </button>
+                        {(activeReport === "Transactions"
+                          ? showSalesFeedActionsMenu
+                          : showProductSalesActionsMenu) && (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-[40px] z-50 w-[200px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_8px_0px_rgba(18,18,18,0.12)]"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                if (activeReport === "Transactions")
+                                  setShowSalesFeedActionsMenu(false)
+                                else setShowProductSalesActionsMenu(false)
+                                savedViewHeaderActions.current?.customiseColumns?.()
+                              }}
+                              className="flex h-[36px] w-full items-center rounded-[4px] px-[10px] text-left font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f9f8f4]"
+                            >
+                              Customise columns
+                            </button>
+                            {requestedSavedViewName && (
                               <>
                                 <button
                                   type="button"
@@ -6223,8 +6441,8 @@ function ReportsPrototype() {
                                 </button>
                               </>
                             )}
-                        </div>
-                    )}
+                          </div>
+                        )}
                       </div>
                     </>
                   </div>
@@ -6297,7 +6515,9 @@ function ReportsPrototype() {
               <>
                 <span className="font-['Inter:Semibold'] text-[#22201f] text-[24px] leading-[32px] min-w-0 truncate">
                   {activeReport === "Transactions"
-                    ? isTransactionInvoiceOpen ? "Tax invoice" : "Sales feed"
+                    ? isTransactionInvoiceOpen
+                      ? "Tax invoice"
+                      : "Sales feed"
                     : activeReport === "Lightspeed reports" ||
                         activeReport === "Shared reports" ||
                         activeReport === "My reports"
@@ -6305,7 +6525,9 @@ function ReportsPrototype() {
                       : activeReport}
                 </span>
                 <div className="flex-1 min-w-0" />
-                {((activeReport === "Transactions" && !isTransactionInvoiceOpen) || activeReport === "Product sales") && (
+                {((activeReport === "Transactions" &&
+                  !isTransactionInvoiceOpen) ||
+                  activeReport === "Product sales") && (
                   <>
                     {(activeReport === "Transactions"
                       ? showSalesFeedSaveReport
@@ -6315,61 +6537,71 @@ function ReportsPrototype() {
                         onClick={() => savedViewHeaderActions.current?.save?.()}
                         className="flex h-[32px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
                       >
-                        Save report
+                        Save view
                       </button>
                     )}
                     <>
                       <button
                         type="button"
                         aria-label="Export"
-                        onClick={() => savedViewHeaderActions.current?.export?.()}
+                        onClick={() =>
+                          savedViewHeaderActions.current?.export?.()
+                        }
                         className="flex h-[32px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
                       >
                         Export
                       </button>
                       <div className="relative" ref={savedViewMenuRef}>
-                      <button
-                        type="button"
-                        aria-label="More options"
-                        aria-haspopup="menu"
-                        aria-expanded={activeReport === "Transactions" ? showSalesFeedActionsMenu : showProductSalesActionsMenu}
-                        onClick={() => activeReport === "Transactions"
-                          ? setShowSalesFeedActionsMenu((open) => !open)
-                          : setShowProductSalesActionsMenu((open) => !open)}
-                        className="flex size-[32px] items-center justify-center rounded-full text-[#22201f] transition-colors hover:bg-[#f4f3ef]"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 16 16"
-                          fill="currentColor"
+                        <button
+                          type="button"
+                          aria-label="More options"
+                          aria-haspopup="menu"
+                          aria-expanded={
+                            activeReport === "Transactions"
+                              ? showSalesFeedActionsMenu
+                              : showProductSalesActionsMenu
+                          }
+                          onClick={() =>
+                            activeReport === "Transactions"
+                              ? setShowSalesFeedActionsMenu((open) => !open)
+                              : setShowProductSalesActionsMenu((open) => !open)
+                          }
+                          className="flex size-[32px] items-center justify-center rounded-full text-[#22201f] transition-colors hover:bg-[#f4f3ef]"
                         >
-                          <circle cx="3" cy="8" r="1.25" />
-                          <circle cx="8" cy="8" r="1.25" />
-                          <circle cx="13" cy="8" r="1.25" />
-                        </svg>
-                      </button>
-                      {(activeReport === "Transactions" ? showSalesFeedActionsMenu : showProductSalesActionsMenu) && (
-                        <div
-                          role="menu"
-                          className="absolute right-0 top-[40px] z-50 w-[200px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_8px_0px_rgba(18,18,18,0.12)]"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                              if (activeReport === "Transactions")
-                                setShowSalesFeedActionsMenu(false)
-                              else setShowProductSalesActionsMenu(false)
-                              savedViewHeaderActions.current?.customiseColumns?.()
-                            }}
-                            className="flex h-[36px] w-full items-center rounded-[4px] px-[10px] text-left font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f9f8f4]"
+                          <svg
+                            aria-hidden="true"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
                           >
-                            Customise columns
-                          </button>
-                        </div>
-                      )}
+                            <circle cx="3" cy="8" r="1.25" />
+                            <circle cx="8" cy="8" r="1.25" />
+                            <circle cx="13" cy="8" r="1.25" />
+                          </svg>
+                        </button>
+                        {(activeReport === "Transactions"
+                          ? showSalesFeedActionsMenu
+                          : showProductSalesActionsMenu) && (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-[40px] z-50 w-[200px] overflow-hidden rounded-[8px] border border-[#e3e2dd] bg-white p-[4px] shadow-[0px_4px_8px_0px_rgba(18,18,18,0.12)]"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                if (activeReport === "Transactions")
+                                  setShowSalesFeedActionsMenu(false)
+                                else setShowProductSalesActionsMenu(false)
+                                savedViewHeaderActions.current?.customiseColumns?.()
+                              }}
+                              className="flex h-[36px] w-full items-center rounded-[4px] px-[10px] text-left font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] hover:bg-[#f9f8f4]"
+                            >
+                              Customise columns
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </>
                   </>
@@ -6392,7 +6624,6 @@ function ReportsPrototype() {
           </div>
 
           {activeReport === "All reports" ||
-          activeReport === "Favourites" ||
           activeReport === "Lightspeed reports" ||
           activeReport === "Shared reports" ||
           activeReport === "My reports" ? (
@@ -6400,9 +6631,6 @@ function ReportsPrototype() {
               page={activeReport}
               onSelectPage={selectReportsTab}
               onSelectReport={selectDirectoryReport}
-              favouriteIds={favouriteReportIds}
-              onToggleFavourite={toggleReportFavourite}
-              onFavouriteSuccess={showFavouriteSuccess}
             />
           ) : activeReport === "Transactions" ? (
             <div className="h-0 min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
@@ -6602,11 +6830,7 @@ function ReportsPrototype() {
                   />
                   {openFilter === "hourly-metric" && (
                     <OptionsDropdown
-                      options={[
-                        "Sale amount",
-                        "Order count",
-                        "Average sale",
-                      ]}
+                      options={["Sale amount", "Order count", "Average sale"]}
                       selected={hourlySalesMetric}
                       onSelect={(value) =>
                         setHourlySalesMetric(value as HourlySalesMetric)
@@ -6655,9 +6879,7 @@ function ReportsPrototype() {
                     </div>
                     <MetricMoreMenu
                       onExportPng={() => setToast("PNG export selected")}
-                      onViewMethodology={() =>
-                        setToast("Methodology opened")
-                      }
+                      onViewMethodology={() => setToast("Methodology opened")}
                     />
                   </div>
                   <HourlySalesChart
@@ -6679,12 +6901,11 @@ function ReportsPrototype() {
               </div>
             </div>
           ) : selectedDirectoryReport &&
-            [
-              "preset:daily-sales",
-              "preset:site-comparison",
-                ].includes(selectedDirectoryReport.id) ? (
+            ["preset:daily-sales", "preset:site-comparison"].includes(
+              selectedDirectoryReport.id,
+            ) ? (
             <div className="h-0 min-h-0 w-full flex-1 overflow-y-auto overscroll-contain" />
-                ) : (
+          ) : (
             /* Scrollable content area */
             <div className="flex flex-col gap-[24px] items-start p-[24px] w-full overflow-y-auto flex-1">
               {/* Filter bar */}
@@ -6790,7 +7011,7 @@ function ReportsPrototype() {
                           className="!h-auto !px-0 hover:!bg-transparent"
                           onClick={() => setShowSaveModal(true)}
                         >
-                          Save report
+                          Save view
                         </ActionButton>
                       )}
                     </div>
@@ -7167,7 +7388,7 @@ function ReportsPrototype() {
                         onClick={() => selectProductSales("Site")}
                         className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline"
                       >
-                        See more
+                        Drill in
                       </button>
                     </div>
                   </WidgetCard>
@@ -7258,7 +7479,7 @@ function ReportsPrototype() {
                         onClick={() => selectProductSales("Staff")}
                         className="cursor-pointer font-['Inter:Semibold'] text-[#1e72c4] text-[14px] leading-[24px] hover:underline"
                       >
-                        See more
+                        Drill in
                       </button>
                     </div>
                   </WidgetCard>
@@ -7279,7 +7500,9 @@ function ReportsPrototype() {
                 : [...current, key],
             )
           }
-          onReset={() => setVisibleOverviewWidgets(defaultOverviewDashboardWidgets)}
+          onReset={() =>
+            setVisibleOverviewWidgets(defaultOverviewDashboardWidgets)
+          }
           onClose={() => setIsCustomiseDashboardOpen(false)}
         />
       )}
@@ -7591,9 +7814,7 @@ const PRODUCT_TAG_OPTIONS = ["Vegan", "Vegetarian", "Gluten-free", "Popular"]
 const PRODUCT_TAX_OPTIONS = ["Products with tax", "Products without tax"]
 
 function getProductTaxLabel(value: string) {
-  return value === "Exclusive"
-    ? "Products without tax"
-    : "Products with tax"
+  return value === "Exclusive" ? "Products without tax" : "Products with tax"
 }
 
 function getProductTaxValue(label: string) {
@@ -7704,9 +7925,11 @@ function EmailTaxInvoiceModal({
 }: {
   row: TransactionRow
   onClose: () => void
-  onSend: (details: { customerName: string; email: string; cc: string }) => void
+  onSend: (details: { customerName: string email: string cc: string }) => void
 }) {
-  const [customerName, setCustomerName] = useState(row.customer === "Walk-in" ? "" : row.customer)
+  const [customerName, setCustomerName] = useState(
+    row.customer === "Walk-in" ? "" : row.customer,
+  )
   const [email, setEmail] = useState("")
   const [cc, setCc] = useState("")
 
@@ -7728,26 +7951,66 @@ function EmailTaxInvoiceModal({
       >
         <div className="flex items-center border-b border-[#e3e2dd] px-[24px] py-[20px]">
           <div className="min-w-0 flex-1">
-            <h2 id="email-tax-invoice-title" className="font-['Inter:Semibold'] text-[20px] leading-[28px] text-[#22201f]">
+            <h2
+              id="email-tax-invoice-title"
+              className="font-['Inter:Semibold'] text-[20px] leading-[28px] text-[#22201f]"
+            >
               Email tax invoice
             </h2>
             <p className="mt-[4px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
               Sale {row.saleNumber}
             </p>
           </div>
-          <button type="button" aria-label="Close" onClick={onClose} className="flex size-[32px] shrink-0 items-center justify-center rounded-full text-[#62615d] hover:bg-[#f4f3ef]">
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="m4 4 8 8m0-8-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="flex size-[32px] shrink-0 items-center justify-center rounded-full text-[#62615d] hover:bg-[#f4f3ef]"
+          >
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+            >
+              <path
+                d="m4 4 8 8m0-8-8 8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>
         <div className="flex flex-col gap-[16px] px-[24px] py-[20px]">
           {[
-            { label: "Customer name", value: customerName, onChange: setCustomerName, type: "text", required: false },
-            { label: "Email address", value: email, onChange: setEmail, type: "email", required: true },
-            { label: "Additional email (CC)", value: cc, onChange: setCc, type: "email", required: false },
+            {
+              label: "Customer name",
+              value: customerName,
+              onChange: setCustomerName,
+              type: "text",
+              required: false,
+            },
+            {
+              label: "Email address",
+              value: email,
+              onChange: setEmail,
+              type: "email",
+              required: true,
+            },
+            {
+              label: "Additional email (CC)",
+              value: cc,
+              onChange: setCc,
+              type: "email",
+              required: false,
+            },
           ].map((field) => (
-            <label key={field.label} className="flex flex-col gap-[6px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f]">
+            <label
+              key={field.label}
+              className="flex flex-col gap-[6px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f]"
+            >
               {field.label}
               <input
                 autoFocus={field.label === "Customer name"}
@@ -7764,10 +8027,17 @@ function EmailTaxInvoiceModal({
           </p>
         </div>
         <div className="flex justify-end gap-[8px] border-t border-[#e3e2dd] px-[24px] py-[16px]">
-          <button type="button" onClick={onClose} className="h-[36px] rounded-[8px] border border-[#bbbab6] px-[14px] font-['Inter:Semibold'] text-[14px] text-[#22201f] hover:bg-[#f9f8f4]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[36px] rounded-[8px] border border-[#bbbab6] px-[14px] font-['Inter:Semibold'] text-[14px] text-[#22201f] hover:bg-[#f9f8f4]"
+          >
             Cancel
           </button>
-          <button type="submit" className="h-[36px] rounded-[8px] bg-[#1e72c4] px-[16px] font-['Inter:Semibold'] text-[14px] text-white hover:bg-[#1558a0]">
+          <button
+            type="submit"
+            className="h-[36px] rounded-[8px] bg-[#1e72c4] px-[16px] font-['Inter:Semibold'] text-[14px] text-white hover:bg-[#1558a0]"
+          >
             Send email
           </button>
         </div>
@@ -7776,13 +8046,37 @@ function EmailTaxInvoiceModal({
   )
 }
 
-function InvoicePdfPreview({ row, onClose }: { row: TransactionRow; onClose: () => void }) {
+function InvoicePdfPreview({
+  row,
+  onClose,
+}: {
+  row: TransactionRow
+  onClose: () => void
+}) {
   return (
-    <div className="fixed inset-0 z-[150] flex flex-col bg-[#f4f3ef]" role="dialog" aria-modal="true" aria-labelledby="invoice-preview-title">
+    <div
+      className="fixed inset-0 z-[150] flex flex-col bg-[#f4f3ef]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="invoice-preview-title"
+    >
       <div className="flex h-[64px] shrink-0 items-center gap-[12px] border-b border-[#e3e2dd] bg-white px-[20px]">
-        <button type="button" onClick={onClose} className="rounded-[8px] px-[12px] py-[8px] font-['Inter:Medium'] text-[14px] text-[#22201f] hover:bg-[#f9f8f4]">Back to invoice</button>
-        <h2 id="invoice-preview-title" className="flex-1 font-['Inter:Semibold'] text-[16px] text-[#22201f]">PDF preview</h2>
-        <span className="font-['Inter:Regular'] text-[13px] text-[#62615d]">Tax invoice {row.saleNumber}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-[8px] px-[12px] py-[8px] font-['Inter:Medium'] text-[14px] text-[#22201f] hover:bg-[#f9f8f4]"
+        >
+          Back to invoice
+        </button>
+        <h2
+          id="invoice-preview-title"
+          className="flex-1 font-['Inter:Semibold'] text-[16px] text-[#22201f]"
+        >
+          PDF preview
+        </h2>
+        <span className="font-['Inter:Regular'] text-[13px] text-[#62615d]">
+          Tax invoice {row.saleNumber}
+        </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-[24px]">
         <TaxInvoiceDocument row={row} />
@@ -7812,26 +8106,58 @@ function TaxInvoiceDocument({ row }: { row: TransactionRow }) {
     <article className="mx-auto w-full max-w-[920px] rounded-[12px] border border-[#e3e2dd] bg-white px-[24px] py-[28px] shadow-[0_2px_8px_rgba(34,32,31,0.05)] sm:px-[48px] sm:py-[40px]">
       <header className="flex flex-wrap items-start justify-between gap-[24px] border-b border-[#e3e2dd] pb-[28px]">
         <div className="min-w-[220px]">
-          <h2 className="font-['Inter:Regular'] text-[28px] leading-[36px] tracking-[-0.02em] text-[#45464d] sm:text-[32px]">Tax invoice</h2>
+          <h2 className="font-['Inter:Regular'] text-[28px] leading-[36px] tracking-[-0.02em] text-[#45464d] sm:text-[32px]">
+            Tax invoice
+          </h2>
           <div className="mt-[28px] font-['Inter:Regular'] text-[14px] leading-[24px] text-[#45464d] sm:text-[15px]">
-            <p className="font-['Inter:Semibold'] text-[#22201f]">Kounta Cafe {row.site} - Internal Test</p>
+            <p className="font-['Inter:Semibold'] text-[#22201f]">
+              Kounta Cafe {row.site} - Internal Test
+            </p>
             <p>36-42 Chippen St, Chippendale, NSW 2008</p>
             <p>Business Number: Kounta</p>
             <p>Phone: 0285992247</p>
-            <p>Email: <span className="text-[#77787d]">test@kounta.com</span></p>
-            <p>Website: <span className="text-[#77787d]">-</span></p>
+            <p>
+              Email: <span className="text-[#77787d]">test@kounta.com</span>
+            </p>
+            <p>
+              Website: <span className="text-[#77787d]">-</span>
+            </p>
           </div>
         </div>
         <div className="flex min-w-[180px] flex-col items-start gap-[14px] sm:items-end">
-          <div className="flex items-center gap-[8px] text-[#22201f]" aria-label="Lightspeed">
-            <svg aria-hidden="true" width="24" height="28" viewBox="0 0 24 28" fill="none">
-              <path d="M13.8 2.5 4.5 15.1a2.5 2.5 0 0 0 .3 3.3l4.8 5a2.4 2.4 0 0 0 3.8-.4l6.1-10.5a2.7 2.7 0 0 0-.4-3.2L13.8 2.5Z" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" />
-              <path d="m13.7 9.2-4.5 6.1 3.1 3.2 3.2-5.6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          <div
+            className="flex items-center gap-[8px] text-[#22201f]"
+            aria-label="Lightspeed"
+          >
+            <svg
+              aria-hidden="true"
+              width="24"
+              height="28"
+              viewBox="0 0 24 28"
+              fill="none"
+            >
+              <path
+                d="M13.8 2.5 4.5 15.1a2.5 2.5 0 0 0 .3 3.3l4.8 5a2.4 2.4 0 0 0 3.8-.4l6.1-10.5a2.7 2.7 0 0 0-.4-3.2L13.8 2.5Z"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinejoin="round"
+              />
+              <path
+                d="m13.7 9.2-4.5 6.1 3.1 3.2 3.2-5.6"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-            <span className="font-['Inter:Semibold'] text-[19px] tracking-[-0.04em]">lightspeed</span>
+            <span className="font-['Inter:Semibold'] text-[19px] tracking-[-0.04em]">
+              lightspeed
+            </span>
           </div>
           <div className="text-left font-['Inter:Regular'] text-[13px] leading-[22px] text-[#62636a] sm:text-right sm:text-[14px]">
-            <p className="font-['Inter:Medium'] text-[#45464d]">Receipt Number: {row.saleNumber}</p>
+            <p className="font-['Inter:Medium'] text-[#45464d]">
+              Receipt Number: {row.saleNumber}
+            </p>
             <p>{row.dateTime}</p>
             <p>Served by: {row.operator}</p>
           </div>
@@ -7839,7 +8165,9 @@ function TaxInvoiceDocument({ row }: { row: TransactionRow }) {
       </header>
 
       <section className="pt-[28px] sm:pt-[36px]">
-        <h3 className="mb-[18px] font-['Inter:Medium'] text-[20px] leading-[28px] text-[#45464d]">Purchase summary</h3>
+        <h3 className="mb-[18px] font-['Inter:Medium'] text-[20px] leading-[28px] text-[#45464d]">
+          Purchase summary
+        </h3>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[440px] border-collapse text-left">
             <thead>
@@ -7850,7 +8178,10 @@ function TaxInvoiceDocument({ row }: { row: TransactionRow }) {
             </thead>
             <tbody className="font-['Inter:Regular'] text-[14px] leading-[22px] text-[#45464d] sm:text-[15px]">
               {row.products.map((product, index) => (
-                <tr key={`${product}-${index}`} className="border-b border-[#eeeff0]">
+                <tr
+                  key={`${product}-${index}`}
+                  className="border-b border-[#eeeff0]"
+                >
                   <td className="py-[10px] pr-[16px]">{product}</td>
                   <td className="py-[10px] pl-[16px] text-right font-['Inter:Medium'] text-[#45464d]">
                     {currency(subtotal / itemCount)}
@@ -7859,27 +8190,43 @@ function TaxInvoiceDocument({ row }: { row: TransactionRow }) {
               ))}
               <tr className="border-b border-[#d9dadd] font-['Inter:Medium']">
                 <td className="py-[11px] pr-[16px]">Sub total</td>
-                <td className="py-[11px] pl-[16px] text-right">{currency(subtotal)}</td>
+                <td className="py-[11px] pl-[16px] text-right">
+                  {currency(subtotal)}
+                </td>
               </tr>
               <tr>
                 <td className="pt-[12px] pr-[16px]">Total ex tax</td>
-                <td className="pt-[12px] pl-[16px] text-right">{currency(totalExTax)}</td>
+                <td className="pt-[12px] pl-[16px] text-right">
+                  {currency(totalExTax)}
+                </td>
               </tr>
               <tr>
                 <td className="py-[5px] pr-[16px]">GST</td>
-                <td className="py-[5px] pl-[16px] text-right">{currency(tax)}</td>
+                <td className="py-[5px] pl-[16px] text-right">
+                  {currency(tax)}
+                </td>
               </tr>
-              {tip > 0 && <tr>
-                <td className="py-[5px] pr-[16px]">Tip</td>
-                <td className="py-[5px] pl-[16px] text-right">{currency(tip)}</td>
-              </tr>}
-              {surcharge > 0 && <tr>
-                <td className="py-[5px] pr-[16px]">Surcharge</td>
-                <td className="py-[5px] pl-[16px] text-right">{currency(surcharge)}</td>
-              </tr>}
+              {tip > 0 && (
+                <tr>
+                  <td className="py-[5px] pr-[16px]">Tip</td>
+                  <td className="py-[5px] pl-[16px] text-right">
+                    {currency(tip)}
+                  </td>
+                </tr>
+              )}
+              {surcharge > 0 && (
+                <tr>
+                  <td className="py-[5px] pr-[16px]">Surcharge</td>
+                  <td className="py-[5px] pl-[16px] text-right">
+                    {currency(surcharge)}
+                  </td>
+                </tr>
+              )}
               <tr className="border-b border-[#d9dadd] font-['Inter:Semibold'] text-[20px] text-[#35363b]">
                 <td className="py-[8px] pr-[16px]">Total inc tax</td>
-                <td className="py-[8px] pl-[16px] text-right">{currency(totalIncludingTax)}</td>
+                <td className="py-[8px] pl-[16px] text-right">
+                  {currency(totalIncludingTax)}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -7888,16 +8235,28 @@ function TaxInvoiceDocument({ row }: { row: TransactionRow }) {
 
       <section className="mt-[22px] flex flex-wrap items-end justify-between gap-[12px] border-b border-[#d9dadd] pb-[16px]">
         <div>
-          <p className="font-['Inter:Regular'] text-[13px] text-[#62636a]">Payment mean</p>
-          <p className="mt-[2px] font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#35363b]">{row.payments}</p>
+          <p className="font-['Inter:Regular'] text-[13px] text-[#62636a]">
+            Payment mean
+          </p>
+          <p className="mt-[2px] font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#35363b]">
+            {row.payments}
+          </p>
         </div>
-        <p className="font-['Inter:Semibold'] text-[18px] text-[#35363b]">{currency(tendered)}</p>
+        <p className="font-['Inter:Semibold'] text-[18px] text-[#35363b]">
+          {currency(tendered)}
+        </p>
         <div className="flex w-full items-center justify-between gap-[16px] sm:w-auto sm:min-w-[200px]">
-          <span className="font-['Inter:Semibold'] text-[17px] text-[#35363b]">Change</span>
-          <span className="font-['Inter:Semibold'] text-[17px] text-[#35363b]">{currency(change)}</span>
+          <span className="font-['Inter:Semibold'] text-[17px] text-[#35363b]">
+            Change
+          </span>
+          <span className="font-['Inter:Semibold'] text-[17px] text-[#35363b]">
+            {currency(change)}
+          </span>
         </div>
       </section>
-      <p className="pt-[12px] text-center font-['Inter:Regular'] text-[13px] text-[#77787d]">All prices shown in AUD</p>
+      <p className="pt-[12px] text-center font-['Inter:Regular'] text-[13px] text-[#77787d]">
+        All prices shown in AUD
+      </p>
     </article>
   )
 }
@@ -7914,10 +8273,24 @@ function TransactionInvoicePage({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto bg-white px-[24px] py-[24px] sm:px-[32px] sm:py-[32px]">
       <div className="mx-auto flex w-full max-w-[920px] flex-wrap items-center gap-[12px] pb-[16px]">
-        <h1 className="min-w-0 flex-1 truncate font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#22201f]">Tax invoice {row.saleNumber}</h1>
+        <h1 className="min-w-0 flex-1 truncate font-['Inter:Semibold'] text-[18px] leading-[24px] text-[#22201f]">
+          Tax invoice {row.saleNumber}
+        </h1>
         <div className="flex shrink-0 flex-wrap gap-[8px]">
-          <button type="button" onClick={onPreviewPdf} className="flex h-[36px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]">Preview PDF</button>
-          <button type="button" onClick={onEmailInvoice} className="h-[36px] rounded-[8px] bg-[#1e72c4] px-[14px] font-['Inter:Semibold'] text-[14px] text-white hover:bg-[#1558a0]">Email tax invoice</button>
+          <button
+            type="button"
+            onClick={onPreviewPdf}
+            className="flex h-[36px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
+          >
+            Preview PDF
+          </button>
+          <button
+            type="button"
+            onClick={onEmailInvoice}
+            className="h-[36px] rounded-[8px] bg-[#1e72c4] px-[14px] font-['Inter:Semibold'] text-[14px] text-white hover:bg-[#1558a0]"
+          >
+            Email tax invoice
+          </button>
         </div>
       </div>
       <div className="min-h-0 flex-1">
@@ -8304,7 +8677,7 @@ function TransactionsPage({
   includeDeletedRegisters: boolean
   showDeletedSites: boolean
   onToggleShowDeletedSites: () => void
-  dateSelected: { id: string; label: string }
+  dateSelected: { id: string label: string }
   isRefreshing: boolean
   minutesSinceUpdate: number
   onRefresh: () => void
@@ -8346,8 +8719,7 @@ function TransactionsPage({
   )
   const [includeDeletedPaymentTypes, setIncludeDeletedPaymentTypes] =
     useState(true)
-  const [includeDeletedOrderTypes, setIncludeDeletedOrderTypes] =
-    useState(true)
+  const [includeDeletedOrderTypes, setIncludeDeletedOrderTypes] = useState(true)
   const [includeDeletedSources, setIncludeDeletedSources] = useState(true)
   const [timeRange, setTimeRange] = useState<TransactionTimeRange | null>(
     initialDefault?.timeRange ?? null,
@@ -8363,9 +8735,15 @@ function TransactionsPage({
         ]
       : [],
   )
-  const [terminals, setTerminals] = useState<string[]>(initialDefault?.terminals ?? [])
-  const [orderTypes, setOrderTypes] = useState<string[]>(initialDefault?.orderTypes ?? [])
-  const [sources, setSources] = useState<string[]>(initialDefault?.sources ?? [])
+  const [terminals, setTerminals] = useState<string[]>(
+    initialDefault?.terminals ?? [],
+  )
+  const [orderTypes, setOrderTypes] = useState<string[]>(
+    initialDefault?.orderTypes ?? [],
+  )
+  const [sources, setSources] = useState<string[]>(
+    initialDefault?.sources ?? [],
+  )
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => {
     return loadTransactionColumns()
   })
@@ -8404,7 +8782,9 @@ function TransactionsPage({
     })
   const [isTransactionTableScrolled, setIsTransactionTableScrolled] =
     useState(false)
-  const [selectedInvoice, setSelectedInvoice] = useState<TransactionRow | null>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<TransactionRow | null>(
+    null,
+  )
   const [isEmailInvoiceOpen, setIsEmailInvoiceOpen] = useState(false)
   const [isInvoicePdfPreviewOpen, setIsInvoicePdfPreviewOpen] = useState(false)
   const statusRef = useRef<HTMLDivElement>(null)
@@ -8485,9 +8865,14 @@ function TransactionsPage({
     timeRange,
     loyaltyMember,
     visibleFilters,
-    terminals: selectedRegisters.length > 0
-      ? [...new Set(selectedRegisters.map((key) => key.split(":").slice(1).join(":")))]
-      : terminals,
+    terminals:
+      selectedRegisters.length > 0
+        ? [
+            ...new Set(
+              selectedRegisters.map((key) => key.split(":").slice(1).join(":")),
+            ),
+          ]
+        : terminals,
     orderTypes,
     sources,
   })
@@ -8509,10 +8894,10 @@ function TransactionsPage({
     setShowDeletedOptions(shouldShowDeletedOptions(view))
     setTimeRange(view.timeRange ?? null)
     setLoyaltyMember(view.loyaltyMember ?? "All")
-      setVisibleFilters([
-        ...(view.visibleFilters ?? []),
-        ...(view.paymentTypes?.length ? ["Payment type"] : []),
-      ])
+    setVisibleFilters([
+      ...(view.visibleFilters ?? []),
+      ...(view.paymentTypes?.length ? ["Payment type"] : []),
+    ])
     setTerminals([])
     setOrderTypes(view.orderTypes ?? [])
     setSources(view.sources ?? [])
@@ -8561,7 +8946,7 @@ function TransactionsPage({
           ...(originalSavedView.visibleFilters ?? []),
           ...(originalSavedView.paymentTypes?.length ? ["Payment type"] : []),
         ],
-      terminals: originalSavedView.terminals ?? [],
+        terminals: originalSavedView.terminals ?? [],
         orderTypes: originalSavedView.orderTypes ?? [],
         sources: originalSavedView.sources ?? [],
       }) !==
@@ -8574,9 +8959,16 @@ function TransactionsPage({
           timeRange,
           loyaltyMember,
           visibleFilters,
-          terminals: selectedRegisters.length > 0
-            ? [...new Set(selectedRegisters.map((key) => key.split(":").slice(1).join(":")))]
-            : terminals,
+          terminals:
+            selectedRegisters.length > 0
+              ? [
+                  ...new Set(
+                    selectedRegisters.map((key) =>
+                      key.split(":").slice(1).join(":"),
+                    ),
+                  ),
+                ]
+              : terminals,
           orderTypes,
           sources,
         })
@@ -8614,7 +9006,11 @@ function TransactionsPage({
     (row) =>
       (() => {
         const transactionDate = parseTransactionDate(row.dateTime)
-        return transactionDate !== null && transactionDate >= rangeStart && transactionDate <= rangeEnd
+        return (
+          transactionDate !== null &&
+          transactionDate >= rangeStart &&
+          transactionDate <= rangeEnd
+        )
       })() &&
       (selectedSiteIds.length === 0 || selectedSiteIds.includes(row.siteId)) &&
       (!visibleFilters.includes("Payment type") ||
@@ -8625,17 +9021,23 @@ function TransactionsPage({
           !DELETED_TERMINAL_OPTION_SET.has(row.terminal) &&
           !DELETED_CUSTOMER_OPTIONS.includes(row.customer))) &&
       (customers.length === 0 || customers.includes(row.customer)) &&
-      (showDeletedOptions || includeDeletedPaymentTypes ||
+      (showDeletedOptions ||
+        includeDeletedPaymentTypes ||
         !DELETED_PAYMENT_OPTION_SET.has(row.payments)) &&
-      (showDeletedOptions || includeDeletedOrderTypes ||
+      (showDeletedOptions ||
+        includeDeletedOrderTypes ||
         !DELETED_ORDER_TYPE_OPTION_SET.has(row.orderType ?? "Takeaway")) &&
-      (showDeletedOptions || includeDeletedSources ||
+      (showDeletedOptions ||
+        includeDeletedSources ||
         !DELETED_SOURCE_OPTION_SET.has(row.source ?? "POS")) &&
-      (selectedRegisters.length === 0 || selectedRegisters.includes(`${row.siteId}:${row.terminal}`)) &&
+      (selectedRegisters.length === 0 ||
+        selectedRegisters.includes(`${row.siteId}:${row.terminal}`)) &&
       (terminals.length === 0 || terminals.includes(row.terminal)) &&
-      (orderTypes.length === 0 || orderTypes.includes(row.orderType ?? "Takeaway")) &&
+      (orderTypes.length === 0 ||
+        orderTypes.includes(row.orderType ?? "Takeaway")) &&
       (sources.length === 0 || sources.includes(row.source ?? "POS")) &&
-      (loyaltyMember === "All" || !visibleFilters.includes("Loyalty member") ||
+      (loyaltyMember === "All" ||
+        !visibleFilters.includes("Loyalty member") ||
         (loyaltyMember === "Yes") ===
           (row.loyaltyMember ?? row.customer !== "Walk-in")) &&
       (!timeRange ||
@@ -8814,7 +9216,9 @@ function TransactionsPage({
   ]
   const orderedColumns = columnOrder
     .map((key) => allColumns.find((column) => column.key === key))
-    .filter((column): column is (typeof allColumns)[number] => column !== undefined)
+    .filter(
+      (column): column is typeof allColumns[number] => column !== undefined,
+    )
   const columns = orderedColumns.filter((column) =>
     visibleColumnKeys.includes(column.key),
   )
@@ -8859,23 +9263,24 @@ function TransactionsPage({
     "Payment type": paymentOptions,
     Terminal: [
       ...new Set(
-        TRANSACTION_ROWS
-          .filter((row) => !DELETED_TERMINAL_OPTION_SET.has(row.terminal))
-          .map((row) => row.terminal),
+        TRANSACTION_ROWS.filter(
+          (row) => !DELETED_TERMINAL_OPTION_SET.has(row.terminal),
+        ).map((row) => row.terminal),
       ),
     ],
     "Order type": [
       ...new Set(
-        TRANSACTION_ROWS
-          .filter((row) => !DELETED_ORDER_TYPE_OPTION_SET.has(row.orderType ?? "Takeaway"))
-          .map((row) => row.orderType ?? "Takeaway"),
+        TRANSACTION_ROWS.filter(
+          (row) =>
+            !DELETED_ORDER_TYPE_OPTION_SET.has(row.orderType ?? "Takeaway"),
+        ).map((row) => row.orderType ?? "Takeaway"),
       ),
     ],
     Source: [
       ...new Set(
-        TRANSACTION_ROWS
-          .filter((row) => !DELETED_SOURCE_OPTION_SET.has(row.source ?? "POS"))
-          .map((row) => row.source ?? "POS"),
+        TRANSACTION_ROWS.filter(
+          (row) => !DELETED_SOURCE_OPTION_SET.has(row.source ?? "POS"),
+        ).map((row) => row.source ?? "POS"),
       ),
     ],
   }
@@ -9010,7 +9415,7 @@ function TransactionsPage({
     `deleted options: ${showDeletedOptions ? "shown" : "hidden"}`,
   ])
   function toggleTransactionFilter(filter: string) {
-    setOpenFilter((current) => current === filter ? null : filter)
+    setOpenFilter((current) => (current === filter ? null : filter))
   }
 
   function removeTransactionFilter(filter: string) {
@@ -9063,11 +9468,17 @@ function TransactionsPage({
   }
 
   function transactionFilterValues(filter: string) {
-    if (filter === "Loyalty member") return loyaltyMember === "All" ? [] : [loyaltyMember]
+    if (filter === "Loyalty member")
+      return loyaltyMember === "All" ? [] : [loyaltyMember]
     if (filter === "Payment type") return paymentTypes
-    if (filter === "Terminal") return selectedRegisters.length > 0
-      ? [...new Set(selectedRegisters.map((key) => key.split(":").slice(1).join(":")))]
-      : terminals
+    if (filter === "Terminal")
+      return selectedRegisters.length > 0
+        ? [
+            ...new Set(
+              selectedRegisters.map((key) => key.split(":").slice(1).join(":")),
+            ),
+          ]
+        : terminals
     if (filter === "Order type") return orderTypes
     return sources
   }
@@ -9079,27 +9490,36 @@ function TransactionsPage({
   }
 
   function applyTransactionFilter(filter: string, values: string[]) {
-    if (filter === "Loyalty member") setLoyaltyMember(values.length === 1 ? values[0] as "Yes" | "No" : "All")
+    if (filter === "Loyalty member")
+      setLoyaltyMember(values.length === 1 ? values[0] as "Yes" | "No" : "All")
     if (filter === "Payment type") setPaymentTypes(values)
     if (filter === "Terminal") {
       setTerminals([])
       if (values.length === 0) onToggleRegister("all")
       else {
-        const currentNames = new Set(selectedRegisters.map((key) => key.split(":").slice(1).join(":")))
+        const currentNames = new Set(
+          selectedRegisters.map((key) => key.split(":").slice(1).join(":")),
+        )
         const nextNames = new Set(values)
         selectedRegisters
           .filter((key) => !nextNames.has(key.split(":").slice(1).join(":")))
           .forEach((key) => onToggleRegister(key))
-        const sites = selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1)
-        sites.flatMap((site) => (REGISTERS_BY_SITE[site.id] ?? [])
-          .filter((name) => nextNames.has(name) && !currentNames.has(name))
-          .map((name) => `${site.id}:${name}`))
+        const sites =
+          selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1)
+        sites
+          .flatMap((site) =>
+            (REGISTERS_BY_SITE[site.id] ?? [])
+              .filter((name) => nextNames.has(name) && !currentNames.has(name))
+              .map((name) => `${site.id}:${name}`),
+          )
           .forEach((key) => onToggleRegister(key))
       }
     }
     if (filter === "Order type") setOrderTypes(values)
     if (filter === "Source") setSources(values)
-    setVisibleFilters((current) => current.includes(filter) ? current : [...current, filter])
+    setVisibleFilters((current) =>
+      current.includes(filter) ? current : [...current, filter],
+    )
     setActiveViewName(null)
   }
 
@@ -9115,7 +9535,9 @@ function TransactionsPage({
     if (!selectedInvoice) return
     setIsEmailInvoiceOpen(false)
     setToast(
-      `Tax invoice sent to ${customerName ? `${customerName} at ` : ""}${email}${cc ? ` (CC: ${cc})` : ""}`,
+      `Tax invoice sent to ${
+        customerName ? `${customerName} at ` : ""
+      }${email}${cc ? ` (CC: ${cc})` : ""}`,
     )
   }
 
@@ -9140,12 +9562,23 @@ function TransactionsPage({
           onClick={() => removeTransactionFilter(filter)}
           className="absolute right-[8px] flex size-[20px] shrink-0 items-center justify-center rounded-full text-[#85837e] hover:bg-[#f2f0ea] hover:text-[#22201f]"
         >
-          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="m3 3 6 6m0-6L3 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <svg
+            aria-hidden="true"
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+          >
+            <path
+              d="m3 3 6 6m0-6L3 9"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
           </svg>
         </button>
-        {openFilter === filterId && (
-          filter === "Payment type" ? (
+        {openFilter === filterId &&
+          (filter === "Payment type" ? (
             <TransactionOptionDropdown
               label="Payment type"
               allLabel="All payment types"
@@ -9163,22 +9596,39 @@ function TransactionsPage({
           ) : filter === "Order type" || filter === "Source" ? (
             <TransactionOptionDropdown
               label={filter}
-              allLabel={filter === "Order type" ? "All order types" : "All sources"}
-              includeDeletedLabel={filter === "Order type" ? "Include deleted order types" : "Include deleted sources"}
+              allLabel={
+                filter === "Order type" ? "All order types" : "All sources"
+              }
+              includeDeletedLabel={
+                filter === "Order type"
+                  ? "Include deleted order types"
+                  : "Include deleted sources"
+              }
               options={transactionFilterOptions[filter]}
               deletedOptions={deletedTransactionFilterOptions[filter]}
               selected={filter === "Order type" ? orderTypes : sources}
               onToggle={(value) => toggleTransactionOption(filter, value)}
-              includeDeletedOptions={filter === "Order type" ? includeDeletedOrderTypes : includeDeletedSources}
+              includeDeletedOptions={
+                filter === "Order type"
+                  ? includeDeletedOrderTypes
+                  : includeDeletedSources
+              }
               onToggleIncludeDeletedOptions={() => {
-                if (filter === "Order type") setIncludeDeletedOrderTypes((include) => !include)
+                if (filter === "Order type")
+                  setIncludeDeletedOrderTypes((include) => !include)
                 else setIncludeDeletedSources((include) => !include)
               }}
               onClose={() => setOpenFilter(null)}
             />
           ) : filter === "Terminal" ? (
             <RegisterDropdown
-              selectedSites={selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1).filter((site) => showDeletedSites || !site.deleted)}
+              selectedSites={
+                selectedSites.length > 0
+                  ? selectedSites
+                  : SITE_OPTIONS.slice(1).filter(
+                      (site) => showDeletedSites || !site.deleted,
+                    )
+              }
               selectedRegisters={selectedRegisters}
               onToggle={(key) => {
                 onToggleRegister(key)
@@ -9200,8 +9650,7 @@ function TransactionsPage({
               singleSelect={filter === "Loyalty member"}
               deletedOptions={deletedTransactionFilterOptions[filter]}
             />
-          )
-        )}
+          ))}
       </div>
     )
   }
@@ -9230,7 +9679,9 @@ function TransactionsPage({
         {toast && (
           <Toast
             message={typeof toast === "string" ? toast : toast.message}
-            actionLabel={typeof toast === "string" ? undefined : toast.actionLabel}
+            actionLabel={
+              typeof toast === "string" ? undefined : toast.actionLabel
+            }
             onAction={typeof toast === "string" ? undefined : toast.onAction}
             onDone={() => setToast(null)}
           />
@@ -9369,8 +9820,19 @@ function TransactionsPage({
               onClick={() => toggleTransactionFilter("add-filter")}
               className="flex size-[32px] shrink-0 items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
             >
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+              >
+                <path
+                  d="M8 3v10M3 8h10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
             {openFilter === "add-filter" && (
@@ -9378,18 +9840,31 @@ function TransactionsPage({
                 filters={availableFilters}
                 filterOptions={transactionFilterOptions}
                 showAllOption={false}
-                registerSites={selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1).filter((site) => showDeletedSites || !site.deleted)}
+                registerSites={
+                  selectedSites.length > 0
+                    ? selectedSites
+                    : SITE_OPTIONS.slice(1).filter(
+                        (site) => showDeletedSites || !site.deleted,
+                      )
+                }
                 selectedRegisterKeys={selectedRegisters}
                 onToggleRegister={(key) => {
                   onToggleRegister(key)
                   setTerminals([])
-                  setVisibleFilters((current) => current.includes("Terminal") ? current : [...current, "Terminal"])
+                  setVisibleFilters((current) =>
+                    current.includes("Terminal")
+                      ? current
+                      : [...current, "Terminal"],
+                  )
                   setActiveViewName(null)
                 }}
                 includeDeletedRegisters={includeDeletedRegisters}
-                onToggleIncludeDeletedRegisters={onToggleIncludeDeletedRegisters}
+                onToggleIncludeDeletedRegisters={
+                  onToggleIncludeDeletedRegisters
+                }
                 selectedValues={{
-                  "Loyalty member": loyaltyMember === "All" ? [] : [loyaltyMember],
+                  "Loyalty member":
+                    loyaltyMember === "All" ? [] : [loyaltyMember],
                   "Payment type": paymentTypes,
                   Terminal: terminals,
                   "Order type": orderTypes,
@@ -9639,14 +10114,14 @@ function TransactionsPage({
                             isTransactionTableScrolled
                               ? "after:bg-[#e3e2dd] after:shadow-[2px_0_3px_rgba(34,32,31,0.08)] after:opacity-100"
                               : "after:opacity-0"
-                        } bg-white transition-colors group-hover:bg-[#f9f8f4]`
+                          } bg-white transition-colors group-hover:bg-[#f9f8f4]`
                         : ""
                     } ${column.align ?? ""}`}
                   >
                     {isRefreshing ? (
                       <Sk w="w-full" />
                     ) : column.key === "date" || column.key === "time" ? (
-                      String(row[column.key as "date" | "time"])
+                      String(row[(column.key as "date" | "time")])
                     ) : column.key === "loyaltyMember" ? (
                       (row.loyaltyMember ?? row.customer !== "Walk-in") ? (
                         "Yes"
@@ -9654,7 +10129,7 @@ function TransactionsPage({
                         "No"
                       )
                     ) : (
-                      String(row[column.key as keyof TransactionRow])
+                      String(row[(column.key as keyof TransactionRow)])
                     )}
                   </td>
                 ))}
@@ -9808,8 +10283,8 @@ function ProductSalesPage({
   showDeletedSites: boolean
   onToggleShowDeletedSites: () => void
   selectedRegisters: string[]
-  dateSelected: { id: string; label: string }
-  compareSelected: { id: string; label: string }
+  dateSelected: { id: string label: string }
+  compareSelected: { id: string label: string }
   taxSelected: string
   isRefreshing: boolean
   minutesSinceUpdate: number
@@ -9886,7 +10361,7 @@ function ProductSalesPage({
           "reports-bo:version-4:product-sales-columns",
         ) ?? "null",
       )
-      return Array.isArray(stored) ? (stored as SortKey[]) : []
+      return Array.isArray(stored) ? stored as SortKey[] : []
     } catch {
       return []
     }
@@ -9903,7 +10378,7 @@ function ProductSalesPage({
       return []
     }
   })
-  const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
+  const [sort, setSort] = useState<{ key: SortKey direction: "asc" | "desc" }>({
     key: "name",
     direction: "asc",
   })
@@ -9975,25 +10450,27 @@ function ProductSalesPage({
       ? baseRows.filter((row) => selectedBreakdownValues.includes(row.name))
       : baseRows
   )
-    .filter((row) =>
-      salesBy !== "Product" ||
-      (tags.length === 0 || tags.some((tag) => (row.tags ?? []).includes(tag))) &&
-      (!visibleFilters.includes("Tax") ||
-        (taxSelected === "Exclusive"
-          ? Number(row.tax.replace(/[$,]/g, "")) === 0
-          : Number(row.tax.replace(/[$,]/g, "")) > 0)),
+    .filter(
+      (row) =>
+        salesBy !== "Product" ||
+        ((tags.length === 0 ||
+          tags.some((tag) => (row.tags ?? []).includes(tag))) &&
+          (!visibleFilters.includes("Tax") ||
+            (taxSelected === "Exclusive"
+              ? Number(row.tax.replace(/[$,]/g, "")) === 0
+              : Number(row.tax.replace(/[$,]/g, "")) > 0))),
     )
     .map((row) => {
-    const sales = Number(row.sales.replace(/[$,]/g, ""))
-    const tax = Number(row.tax.replace(/[$,]/g, ""))
-    const totalIncTax = salesBy === "Product" ? sales : sales + tax
-    const totalExTax = salesBy === "Product" ? sales - tax : sales
-    return {
-      ...row,
-      sales: `$${totalIncTax.toFixed(2)}`,
-      exTax: `$${totalExTax.toFixed(2)}`,
-    }
-  })
+      const sales = Number(row.sales.replace(/[$,]/g, ""))
+      const tax = Number(row.tax.replace(/[$,]/g, ""))
+      const totalIncTax = salesBy === "Product" ? sales : sales + tax
+      const totalExTax = salesBy === "Product" ? sales - tax : sales
+      return {
+        ...row,
+        sales: `$${totalIncTax.toFixed(2)}`,
+        exTax: `$${totalExTax.toFixed(2)}`,
+      }
+    })
   const metricDimension =
     salesBy === "Staff" ? "staff member" : salesBy.toLowerCase()
   const topSellingRow = [...reportRows].sort(
@@ -10015,11 +10492,14 @@ function ProductSalesPage({
   const topProductValue =
     salesBy === "Product"
       ? "Salmon Fillet"
-      : (salesBy === "Staff" ? topProfitRow?.name : topSellingRow?.name) ?? "—"
+      : ((salesBy === "Staff" ? topProfitRow?.name : topSellingRow?.name) ??
+        "—")
   const lowestProductValue =
     salesBy === "Product"
       ? "Extra Eggs"
-      : (salesBy === "Staff" ? topAverageSaleRow?.name : lowestSellingRow?.name) ?? "—"
+      : ((salesBy === "Staff"
+          ? topAverageSaleRow?.name
+          : lowestSellingRow?.name) ?? "—")
   const topProfitValue =
     salesBy === "Product" ? "Cold Brew Coffee" : (topProfitRow?.name ?? "—")
   const sortedRows = [...reportRows].sort((a, b) => {
@@ -10045,7 +10525,7 @@ function ProductSalesPage({
   const formatProductTotal = (value: number) =>
     `$${value.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   const showComparison = compareSelected.id !== "none"
-  const columns: Array<{ key: SortKey; label: string; className: string }> =
+  const columns: Array<{ key: SortKey label: string className: string }> =
     salesBy === "Product"
       ? [
           { key: "name", label: "Product", className: "w-[18%]" },
@@ -10088,13 +10568,22 @@ function ProductSalesPage({
 
   const orderedColumns = columnOrder
     .map((key) => columns.find((column) => column.key === key))
-    .filter((column): column is (typeof columns)[number] => column !== undefined)
+    .filter((column): column is typeof columns[number] => column !== undefined)
   const arrangedColumns =
     salesBy === "Product"
       ? ["name", "quantity", "tax", "sales", "exTax"]
           .map((key) => orderedColumns.find((column) => column.key === key))
-          .filter((column): column is (typeof columns)[number] => column !== undefined)
-          .concat(orderedColumns.filter((column) => !["name", "quantity", "tax", "sales", "exTax"].includes(column.key)))
+          .filter(
+            (column): column is typeof columns[number] => column !== undefined,
+          )
+          .concat(
+            orderedColumns.filter(
+              (column) =>
+                !["name", "quantity", "tax", "sales", "exTax"].includes(
+                  column.key,
+                ),
+            ),
+          )
       : orderedColumns
   const visibleColumns = arrangedColumns.filter((column) =>
     visibleColumnKeys.includes(column.key),
@@ -10413,7 +10902,13 @@ function ProductSalesPage({
       customiseColumns: () => setIsCustomiseColumnsOpen(true),
       showSaveReport: hasChangedSavedView,
     })
-  }, [requestedSavedViewName, savedViews, defaultView, activeViewName, hasChangedSavedView])
+  }, [
+    requestedSavedViewName,
+    savedViews,
+    defaultView,
+    activeViewName,
+    hasChangedSavedView,
+  ])
 
   function showFilter(filter: string) {
     setVisibleFilters((current) => [...current, filter])
@@ -10433,11 +10928,12 @@ function ProductSalesPage({
         [filter]: false,
       }))
     }
-    const setters: Record<string, React.Dispatch<React.SetStateAction<string[]>>> = {
-      Product: setProduct,
-      Category: setCategory,
-      "Reporting group": setReportingGroup,
-    }
+    const setters: Record<string, React.Dispatch<React.SetStateAction<string[]>>> =
+      {
+        Product: setProduct,
+        Category: setCategory,
+        "Reporting group": setReportingGroup,
+      }
     const setValues = setters[filter]
     if (!setValues) return
     setValues((current) =>
@@ -10521,23 +11017,41 @@ function ProductSalesPage({
           </svg>
         </button>
         {openFilter === filterId &&
-          (filter === "Product" || filter === "Category" || filter === "Reporting group" ? (
+          (filter === "Product" ||
+          filter === "Category" ||
+          filter === "Reporting group" ? (
             <ProductSalesOptionDropdown
               label={filter}
-              options={filter === "Product"
-                ? PRODUCT_SALES_ROWS.map((row) => row.name)
-                : filter === "Category"
-                  ? ["Coffee", "Pastries", "Mains", "Sides", "Drinks"]
-                  : ["Beverages", "Brunch", "Bakery"]}
-              selected={filter === "Product" ? product : filter === "Category" ? category : reportingGroup}
+              options={
+                filter === "Product"
+                  ? PRODUCT_SALES_ROWS.map((row) => row.name)
+                  : filter === "Category"
+                    ? ["Coffee", "Pastries", "Mains", "Sides", "Drinks"]
+                    : ["Beverages", "Brunch", "Bakery"]
+              }
+              selected={
+                filter === "Product"
+                  ? product
+                  : filter === "Category"
+                    ? category
+                    : reportingGroup
+              }
               onToggle={(value) => toggleProductSalesOption(filter, value)}
               includeDeleted={includeDeletedOptionFilters[filter] ?? true}
-              onToggleIncludeDeleted={() => toggleIncludeDeletedProductFilter(filter)}
+              onToggleIncludeDeleted={() =>
+                toggleIncludeDeletedProductFilter(filter)
+              }
               onClose={() => setOpenFilter(null)}
             />
           ) : filter === "Register" ? (
             <RegisterDropdown
-              selectedSites={selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1).filter((site) => showDeletedSites || !site.deleted)}
+              selectedSites={
+                selectedSites.length > 0
+                  ? selectedSites
+                  : SITE_OPTIONS.slice(1).filter(
+                      (site) => showDeletedSites || !site.deleted,
+                    )
+              }
               selectedRegisters={selectedRegisters}
               onToggle={(key) => {
                 onToggleRegister(key)
@@ -10575,9 +11089,9 @@ function ProductSalesPage({
   }
 
   return (
-      <div className="flex w-full min-w-0 flex-col gap-[24px] p-[24px]">
+    <div className="flex w-full min-w-0 flex-col gap-[24px] p-[24px]">
       <div className="flex w-full flex-wrap items-start gap-[8px]">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-[8px]">
           <div className="relative">
             <DefaultFilterChip
               label="Sales by"
@@ -10586,12 +11100,7 @@ function ProductSalesPage({
             />
             {openFilter === "sales-by" && (
               <OptionsDropdown
-                options={[
-                  "Product",
-                  "Reporting group",
-                  "Category",
-                  "Staff",
-                ]}
+                options={["Product", "Reporting group", "Category", "Staff"]}
                 selected={salesBy}
                 onSelect={(value) => {
                   setSalesBy(value)
@@ -10686,7 +11195,7 @@ function ProductSalesPage({
               type="button"
               aria-label="Add filter"
               title="Add filter"
-                onClick={() => toggleFilter("add-filter")}
+              onClick={() => toggleFilter("add-filter")}
               className="flex size-[32px] shrink-0 items-center justify-center rounded-[8px] border border-[#e3e2dd] bg-white text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
             >
               <svg
@@ -10722,8 +11231,8 @@ function ProductSalesPage({
                   ],
                   "Reporting group": ["All", "Beverages", "Brunch", "Bakery"],
                   Register: ["POS A", "Front POS", "Back POS"],
-                Tax: PRODUCT_TAX_OPTIONS,
-                Tags: PRODUCT_TAG_OPTIONS,
+                  Tax: PRODUCT_TAX_OPTIONS,
+                  Tags: PRODUCT_TAG_OPTIONS,
                 }}
                 selectedValues={{
                   Product: product,
@@ -10742,16 +11251,30 @@ function ProductSalesPage({
                 immediateFilters={["Product", "Category", "Reporting group"]}
                 onToggleImmediateFilter={toggleProductSalesOption}
                 includeDeletedImmediateFilters={includeDeletedOptionFilters}
-                onToggleIncludeDeletedImmediateFilter={toggleIncludeDeletedProductFilter}
-                registerSites={selectedSites.length > 0 ? selectedSites : SITE_OPTIONS.slice(1).filter((site) => showDeletedSites || !site.deleted)}
+                onToggleIncludeDeletedImmediateFilter={
+                  toggleIncludeDeletedProductFilter
+                }
+                registerSites={
+                  selectedSites.length > 0
+                    ? selectedSites
+                    : SITE_OPTIONS.slice(1).filter(
+                        (site) => showDeletedSites || !site.deleted,
+                      )
+                }
                 selectedRegisterKeys={selectedRegisters}
                 onToggleRegister={(key) => {
                   onToggleRegister(key)
-                  setVisibleFilters((current) => current.includes("Register") ? current : [...current, "Register"])
+                  setVisibleFilters((current) =>
+                    current.includes("Register")
+                      ? current
+                      : [...current, "Register"],
+                  )
                   setActiveViewName(null)
                 }}
                 includeDeletedRegisters={includeDeletedRegisters}
-                onToggleIncludeDeletedRegisters={onToggleIncludeDeletedRegisters}
+                onToggleIncludeDeletedRegisters={
+                  onToggleIncludeDeletedRegisters
+                }
                 onApply={(filter, values) => {
                   setActiveViewName(null)
                   if (filter === "Product") setProduct(values)
@@ -10759,7 +11282,10 @@ function ProductSalesPage({
                   if (filter === "Reporting group") setReportingGroup(values)
                   if (filter === "Tags") setTags(values)
                   if (filter === "Register") onApplyRegisters(values)
-                  if (filter === "Tax") onSelectTax(getProductTaxValue(values[0] ?? PRODUCT_TAX_OPTIONS[0]))
+                  if (filter === "Tax")
+                    onSelectTax(
+                      getProductTaxValue(values[0] ?? PRODUCT_TAX_OPTIONS[0]),
+                    )
                   setVisibleFilters((current) =>
                     current.includes(filter) ? current : [...current, filter],
                   )
@@ -10782,7 +11308,7 @@ function ProductSalesPage({
               Reset
             </ActionButton>
           )}
-          </div>
+        </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-[4px]">
           <RefreshControl
@@ -10839,7 +11365,8 @@ function ProductSalesPage({
 
       {salesBy === "Category" && (
         <div className="flex min-h-[52px] w-full items-center rounded-[8px] bg-[#ffedd4] px-[17px] py-[12px] font-['Inter:Regular'] text-[14px] leading-[20px] text-[#4d2000]">
-          Products may belong to multiple categories, so some totals may include them more than once.
+          Products may belong to multiple categories, so some totals may include
+          them more than once.
         </div>
       )}
 
@@ -10873,7 +11400,11 @@ function ProductSalesPage({
                     type="button"
                     aria-label={`Sort by ${column.label}${
                       sort.key === column.key
-                        ? `, ${sort.direction === "asc" ? "ascending" : "descending"}`
+                        ? `, ${
+                            sort.direction === "asc"
+                              ? "ascending"
+                              : "descending"
+                          }`
                         : ""
                     }`}
                     onClick={() =>
