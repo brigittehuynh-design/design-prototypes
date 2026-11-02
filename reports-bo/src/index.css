@@ -1,37 +1,42 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@import 'tailwindcss';
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
 
 @font-face {
-  font-family: 'Inter:Regular';
-  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2') format('woff2');
+  font-family: "Inter:Regular";
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2")
+    format("woff2");
   font-weight: 400;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Inter:Medium';
-  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiA.woff2') format('woff2');
+  font-family: "Inter:Medium";
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hiA.woff2")
+    format("woff2");
   font-weight: 500;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Inter:Semi Bold';
-  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiA.woff2') format('woff2');
+  font-family: "Inter:Semi Bold";
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiA.woff2")
+    format("woff2");
   font-weight: 600;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Inter:Semibold';
-  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiA.woff2') format('woff2');
+  font-family: "Inter:Semibold";
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiA.woff2")
+    format("woff2");
   font-weight: 600;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Inter:Semi_Bold';
-  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiA.woff2') format('woff2');
+  font-family: "Inter:Semi_Bold";
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiA.woff2")
+    format("woff2");
   font-weight: 600;
   font-style: normal;
 }
@@ -42,16 +47,24 @@ html {
 }
 
 @keyframes spin-once {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .spin-once {
   animation: spin-once 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .skeleton {
   background: linear-gradient(90deg, #eeece7 25%, #e3e0da 50%, #eeece7 75%);
@@ -59,4 +72,26 @@ html {
   animation: shimmer 1.2s ease-in-out infinite;
   border-radius: 4px;
   display: inline-block;
+}
+
+.all-reports-list .all-reports-row {
+  border-bottom: 1px solid #e3e2dd;
+}
+
+.all-reports-list .all-reports-row:last-child {
+  border-bottom: 0;
+}
+
+.all-reports-list .all-reports-row:hover,
+.all-reports-list .all-reports-row:has(+ .all-reports-row:hover) {
+  border-bottom-color: transparent;
+}
+
+.all-reports-list .all-reports-row:hover {
+  border-radius: 8px;
+  background-color: #f9f8f4;
+}
+
+.all-reports-list .all-reports-row:hover + .all-reports-row {
+  border-top-color: transparent;
 }

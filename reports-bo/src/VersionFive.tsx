@@ -307,8 +307,12 @@ function ReportsLanding({
     return reports.map((report, index) => (
       <div
         key={report.id}
-        className={`group flex min-h-[80px] w-full items-center gap-[12px] border-t border-[#e3e2dd] px-[16px] py-[12px] transition-colors hover:bg-[#f9f8f4] ${
-          index === 0 ? "border-t-0" : ""
+        className={`group flex min-h-[80px] w-full items-center gap-[12px] px-[16px] py-[12px] transition-colors ${
+          page === "All reports"
+            ? "all-reports-row"
+            : `border-t border-[#e3e2dd] hover:bg-[#f9f8f4] ${
+                index === 0 ? "border-t-0" : ""
+              }`
         }`}
       >
         <button
@@ -710,7 +714,9 @@ function ReportsLanding({
         ) : (
           <section
             aria-label="Reports list"
-            className="overflow-visible rounded-[12px] border border-[#e3e2dd] p-[16px]"
+            className={`overflow-visible rounded-[12px] border border-[#e3e2dd] p-[16px] ${
+              page === "All reports" ? "all-reports-list" : ""
+            }`}
           >
             {page === "All reports" && (
               <div className="flex flex-wrap items-center gap-[8px] pb-[16px]">
@@ -1057,6 +1063,52 @@ function getRoundedDonutSegmentPath(
   ].join(" ")
 }
 
+function ComparisonTag({
+  value,
+  variant = "filled",
+  className = "",
+}: {
+  value: string
+  variant?: "filled" | "plain"
+  className?: string
+}) {
+  const numericValue = Number(value.replace("−", "-").replace(/[^\d.-]/g, ""))
+  const type =
+    numericValue === 0 ? "neutral" : numericValue < 0 ? "negative" : "positive"
+
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap font-['Inter:Semibold'] text-[14px] leading-[20px] ${
+        variant === "filled" ? "rounded-[8px] px-[8px] py-[4px]" : ""
+      } ${
+        type === "positive"
+          ? variant === "filled"
+            ? "bg-[#d8fcdc] text-[#026300]"
+            : "text-[#026300]"
+          : type === "negative"
+            ? variant === "filled"
+              ? "bg-[#ffedd4] text-[#9a4800]"
+              : "text-[#9a4800]"
+            : variant === "filled"
+              ? "bg-[#edeae4] text-[#62615d]"
+              : "text-[#62615d]"
+      } ${className}`}
+    >
+      {value}
+    </span>
+  )
+}
+
+function ComparisonCaption({ compareLabel }: { compareLabel: string }) {
+  if (compareLabel.trim().toLowerCase() === "last monday") return null
+
+  return (
+    <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
+      vs {lowercaseFirstLetter(compareLabel)}
+    </span>
+  )
+}
+
 function OverviewV2DonutCard({
   title,
   segments,
@@ -1181,9 +1233,7 @@ function OverviewV2DonutCard({
                     {segments[hoveredSegment].value}
                   </span>
                   {segments[hoveredSegment].change && (
-                    <span className="font-['Inter:Regular'] text-[12px] leading-[16px] text-[#62615d]">
-                      {segments[hoveredSegment].change}
-                    </span>
+                    <ComparisonTag value={segments[hoveredSegment].change!} />
                   )}
                 </div>
               )}
@@ -1220,13 +1270,7 @@ function OverviewV2DonutCard({
                     {segment.value}
                   </span>
                   {segment.change && (
-                    <span
-                      className={`shrink-0 font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-                        segment.positive ? "text-[#008e13]" : "text-[#8e1311]"
-                      }`}
-                    >
-                      {segment.change}
-                    </span>
+                    <ComparisonTag value={segment.change} variant="plain" />
                   )}
                 </div>
               ))}
@@ -2019,18 +2063,8 @@ function OverviewV2RankedCard({
         </p>
         <div className="mt-[2px] flex items-center gap-[6px] text-[14px] leading-[20px] text-[#62615d]">
           <span>{detail}</span>
-          <span
-            className={`font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-              trend.startsWith("+") ? "text-[#008e13]" : "text-[#8e1311]"
-            }`}
-          >
-            {trend}
-          </span>
-          {showComparison && (
-            <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
-              vs {lowercaseFirstLetter(compareLabel)}
-            </span>
-          )}
+          <ComparisonTag value={trend} />
+          {showComparison && <ComparisonCaption compareLabel={compareLabel} />}
         </div>
       </div>
       <div className="flex flex-col">
@@ -2045,13 +2079,9 @@ function OverviewV2RankedCard({
             <span className="w-[48px] shrink-0 text-right font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
               {row.value}
             </span>
-            <span
-              className={`w-[56px] shrink-0 text-right font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-                row.positive ? "text-[#008e13]" : "text-[#8e1311]"
-              }`}
-            >
-              {row.change}
-            </span>
+            <div className="flex w-[64px] shrink-0 justify-end">
+              <ComparisonTag value={row.change} variant="plain" />
+            </div>
           </div>
         ))}
       </div>
@@ -2299,21 +2329,11 @@ function OverviewV2Dashboard({
                   >
                     ·
                   </span>
-                  <span
-                    className={`font-['Inter:Semibold'] font-semibold ${
-                      table.rows[0][2].startsWith("+")
-                        ? "text-[#008e13]"
-                        : "text-[#8e1311]"
-                    }`}
-                  >
-                    {table.rows[0][2]}
-                  </span>
+                  <ComparisonTag value={table.rows[0][2]} />
                 </>
               )}
               {showComparison && (
-                <span className="font-['Inter:Regular'] text-[#62615d]">
-                  vs {lowercaseFirstLetter(compareLabel)}
-                </span>
+                <ComparisonCaption compareLabel={compareLabel} />
               )}
             </div>
           </div>
@@ -2329,17 +2349,15 @@ function OverviewV2Dashboard({
                 <span className="shrink-0 font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#22201f]">
                   {value}
                 </span>
-                <span
-                  className={`w-[56px] shrink-0 text-center font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-                    change.startsWith("+")
-                      ? "text-[#008e13]"
-                      : change === "—"
-                        ? "text-[#62615d]"
-                        : "text-[#8e1311]"
-                  }`}
-                >
-                  {change}
-                </span>
+                {change === "—" ? (
+                  <span className="w-[56px] shrink-0 text-center text-[14px] leading-[20px] text-[#62615d]">
+                    {change}
+                  </span>
+                ) : (
+                  <div className="flex w-[64px] shrink-0 justify-end">
+                    <ComparisonTag value={change} variant="plain" />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -2514,16 +2532,8 @@ function OverviewV2Dashboard({
                 </span>
                 {showComparison && (
                   <div className="flex items-center gap-[6px]">
-                    <span
-                      className={`font-['Inter:Semibold'] font-semibold text-[14px] leading-[20px] ${
-                        kpi.positive ? "text-[#008e13]" : "text-[#8e1311]"
-                      }`}
-                    >
-                      {kpi.change}
-                    </span>
-                    <span className="font-['Inter:Regular'] text-[14px] leading-[20px] text-[#62615d]">
-                      vs {lowercaseFirstLetter(compareLabel)}
-                    </span>
+                    <ComparisonTag value={kpi.change} />
+                    <ComparisonCaption compareLabel={compareLabel} />
                   </div>
                 )}
               </div>
@@ -2620,20 +2630,10 @@ function OverviewV2Dashboard({
                         {table.rows[0][1]}
                       </span>
                       {table.rows[0][2] !== "—" && (
-                        <span
-                          className={`font-['Inter:Semibold'] font-semibold ${
-                            table.rows[0][2].startsWith("+")
-                              ? "text-[#008e13]"
-                              : "text-[#8e1311]"
-                          }`}
-                        >
-                          {table.rows[0][2]}
-                        </span>
+                        <ComparisonTag value={table.rows[0][2]} />
                       )}
                       {showComparison && (
-                        <span className="font-['Inter:Regular'] text-[#62615d]">
-                          vs {lowercaseFirstLetter(compareLabel)}
-                        </span>
+                        <ComparisonCaption compareLabel={compareLabel} />
                       )}
                     </div>
                   </div>
@@ -6553,7 +6553,12 @@ function HourlySalesTable({
                     ) : difference === null || !showComparison ? (
                       "—"
                     ) : (
-                      `${difference > 0 ? "+" : ""}${difference.toFixed(1)}%`
+                      <ComparisonTag
+                        value={`${
+                          difference > 0 ? "+" : ""
+                        }${difference.toFixed(1)}%`}
+                        variant="plain"
+                      />
                     )}
                   </td>
                 ))}
@@ -6579,6 +6584,7 @@ function KpiCard({
   showComparison,
   isRefreshing,
   compact = false,
+  comparisonTag = false,
   infoIconRight = false,
   tooltip,
 }: {
@@ -6590,6 +6596,7 @@ function KpiCard({
   showComparison: boolean
   isRefreshing?: boolean
   compact?: boolean
+  comparisonTag?: boolean
   infoIconRight?: boolean
   tooltip?: string
 }) {
@@ -6628,7 +6635,9 @@ function KpiCard({
           {showComparison &&
             change &&
             (isRefreshing ? (
-              <Sk w="w-[160px]" h="h-[16px]" />
+              <Sk w={compact ? "w-[112px]" : "w-[160px]"} h="h-[24px]" />
+            ) : compact || comparisonTag ? (
+              <ComparisonTag value={change} />
             ) : (
               <p className="text-[0px] leading-[0] w-full">
                 <span
@@ -6637,10 +6646,14 @@ function KpiCard({
                   {change}{" "}
                 </span>
                 <span className="text-[#62615d] text-[14px] leading-[20px]">
-                  vs{" "}
-                  {compareLabel
-                    ? lowercaseFirstLetter(compareLabel)
-                    : "previous period"}
+                  {compareLabel.trim().toLowerCase() !== "last monday" && (
+                    <>
+                      vs{" "}
+                      {compareLabel
+                        ? lowercaseFirstLetter(compareLabel)
+                        : "previous period"}
+                    </>
+                  )}
                 </span>
               </p>
             ))}
@@ -6689,13 +6702,9 @@ function ProductRow({
           (isRefreshing ? (
             <Sk w="w-[44px]" />
           ) : (
-            <span
-              className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[60px] ${
-                positive ? "text-[#008e13]" : "text-[#8e1311]"
-              }`}
-            >
-              {change}
-            </span>
+            <div className="flex w-[64px] shrink-0 justify-end">
+              <ComparisonTag value={change} variant="plain" />
+            </div>
           ))}
       </div>
       <div className="relative h-0 w-full shrink-0">
@@ -6763,18 +6772,14 @@ function TopListCard({
             showComparison && (
               <p className="text-[0px] leading-[0] w-full">
                 <span className="font-['Inter:Semi_Bold'] font-semibold text-[#22201f] text-[14px] leading-[20px]">
-                  {top.count} units sold •{" "}
+                  {top.count} units sold
                 </span>
-                <span
-                  className={`font-['Inter:Semi_Bold'] font-semibold text-[14px] leading-[20px] ${
-                    top.positive ? "text-[#008e13]" : "text-[#8e1311]"
-                  }`}
-                >
-                  {top.change}{" "}
-                </span>
-                <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">
-                  vs {lowercaseFirstLetter(compareLabel)}
-                </span>
+                <ComparisonTag value={top.change} />
+                {compareLabel.trim().toLowerCase() !== "last monday" && (
+                  <span className="font-['Inter:Regular'] text-[#62615d] text-[14px] leading-[20px]">
+                    vs {lowercaseFirstLetter(compareLabel)}
+                  </span>
+                )}
               </p>
             )
           )}
@@ -6848,13 +6853,9 @@ function SiteTableRow({
         (isRefreshing ? (
           <Sk w="w-[48px]" h="h-[16px]" />
         ) : (
-          <span
-            className={`font-['Inter:Semibold'] text-[14px] leading-[24px] text-right w-[120px] shrink-0 ${
-              positive ? "text-[#008e13]" : "text-[#8e1311]"
-            }`}
-          >
-            {diff}
-          </span>
+          <div className="flex w-[120px] shrink-0 justify-end">
+            <ComparisonTag value={diff} variant="plain" />
+          </div>
         ))}
     </div>
   )
@@ -8828,6 +8829,7 @@ function ReportsPrototype() {
                   compareLabel={compareSelected.label}
                   showComparison={showComparison}
                   isRefreshing={isRefreshing}
+                  comparisonTag
                   infoIconRight
                   tooltip="The hour of the day with the highest sales."
                 />
@@ -8839,6 +8841,7 @@ function ReportsPrototype() {
                   compareLabel={compareSelected.label}
                   showComparison={showComparison}
                   isRefreshing={isRefreshing}
+                  comparisonTag
                   infoIconRight
                   tooltip="The hour of the day with the lowest sales."
                 />
