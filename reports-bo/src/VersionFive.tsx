@@ -2253,7 +2253,7 @@ function OverviewV2Dashboard({
     "hourly-sales": (
       <WidgetCard className="w-full">
         <div className="rounded-[12px] border border-[#e3e2dd] bg-white p-[16px]">
-          <div className="mb-[8px] flex items-center gap-[8px]">
+          <div className="mb-[24px] flex items-center gap-[8px]">
             <h3 className="min-w-0 flex-1 font-['Inter:Medium'] text-[12px] leading-[16px] text-[#62615d]">
               Hourly sales
             </h3>
@@ -2272,7 +2272,7 @@ function OverviewV2Dashboard({
           <button
             type="button"
             onClick={onHourlySalesDrillIn}
-            className="mt-[12px] font-['Inter:Semibold'] text-[14px] leading-[20px] text-[#1e72c4] hover:underline"
+            className="font-['Inter:Semibold'] text-[15px] leading-[24px] text-[#1e72c4] hover:underline"
           >
             Drill in
           </button>
@@ -6107,22 +6107,19 @@ const HALF_HOURS = [
   "1:00 PM",
   "1:30 PM",
   "2:00 PM",
-  "2:30 PM",
 ]
 
 const CURRENT_DATA = [
-  120, 185, 310, 420, 510, 580, 640, 690, 720, 760, 810, 770, 680, 590, 480,
-  320,
+  250, 200, 310, 250, 210, 310, 180, 160, 250, 220, 250, 340, 260, 180, 250,
 ]
 const PREV_DATA = [
-  100, 155, 270, 360, 430, 490, 530, 570, 600, 630, 670, 640, 580, 510, 420,
-  280,
+  165, 255, 205, 335, 185, 300, 220, 190, 165, 280, 250, 290, 300, 220, 205,
 ]
 const CURRENT_ORDER_DATA = [
-  7, 10, 16, 20, 24, 27, 30, 32, 34, 36, 38, 36, 32, 28, 23, 15,
+  12, 10, 15, 12, 10, 15, 9, 8, 12, 11, 12, 16, 13, 9, 12,
 ]
 const PREV_ORDER_DATA = [
-  6, 9, 14, 18, 21, 24, 27, 29, 31, 33, 35, 33, 29, 25, 20, 13,
+  8, 13, 10, 17, 9, 15, 11, 9, 8, 14, 13, 15, 15, 11, 10,
 ]
 type HourlySalesMetric = "Sale amount" | "Order count" | "Average sale"
 
@@ -6163,34 +6160,53 @@ function HourlySalesChart({
   metric?: HourlySalesMetric
 }) {
   const [hovered, setHovered] = useState<number | null>(null)
+  const [chartWidth, setChartWidth] = useState(600)
   const svgRef = useRef<SVGSVGElement>(null)
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+
+    const observer = new ResizeObserver(() => {
+      setChartWidth(svg.getBoundingClientRect().width)
+    })
+    observer.observe(svg)
+    setChartWidth(svg.getBoundingClientRect().width)
+    return () => observer.disconnect()
+  }, [isRefreshing])
   const { current: currentData, previous: previousData } =
     getHourlyMetricData(metric)
   const W = 600,
-    H = 161
-  const PAD_T = 8,
-    PAD_B = 4,
-    PAD_L = 0,
-    PAD_R = 0
-  const Y_LABEL_W = largeLabels ? 48 : 36
-  const maxVal = Math.max(
+    H = 140
+  const PAD_T = 0,
+    PAD_B = 0,
+    PAD_L = 5,
+    PAD_R = 5
+  const Y_LABEL_W = 32
+  const rawMax = Math.max(
     ...(showComparison ? [...currentData, ...previousData] : currentData),
   )
-  const Y_TICKS = [0.25, 0.5, 0.75, 1]
-  const slotW = W / currentData.length
-  const barW = slotW * (showComparison ? 0.32 : 0.56)
-  const groupGap = slotW * 0.06
+  const axisMax =
+    metric === "Sale amount"
+      ? 400
+      : Math.ceil(rawMax / (metric === "Order count" ? 10 : 5)) *
+        (metric === "Order count" ? 10 : 5)
+  const Y_TICKS = [1, 0.75, 0.5, 0.25, 0]
+  const slotW = (W - PAD_L - PAD_R) / currentData.length
+  const barW = slotW * (showComparison ? 0.275 : 0.56)
+  const groupGap = slotW * 0.11
   const baseline = H - PAD_B
 
   function xv(i: number) {
     return PAD_L + (i + 0.5) * slotW
   }
   function yv(v: number) {
-    return PAD_T + (1 - v / (maxVal * 1.05)) * (H - PAD_T - PAD_B)
+    return PAD_T + (1 - v / axisMax) * (H - PAD_T - PAD_B)
   }
   function barPath(x: number, y: number, width: number) {
-    const radius = Math.min(4, width / 2, baseline - y)
-    return `M ${x} ${y + radius} A ${radius} ${radius} 0 0 1 ${x + radius} ${y} H ${x + width - radius} A ${radius} ${radius} 0 0 1 ${x + width} ${y + radius} V ${baseline} H ${x} Z`
+    const height = baseline - y
+    const radiusX = width / 2
+    const radiusY = Math.min(radiusX * (chartWidth / W), height / 2)
+    return `M ${x + radiusX} ${y} H ${x + width - radiusX} A ${radiusX} ${radiusY} 0 0 1 ${x + width} ${y + radiusY} V ${baseline - radiusY} A ${radiusX} ${radiusY} 0 0 1 ${x + width - radiusX} ${baseline} H ${x + radiusX} A ${radiusX} ${radiusY} 0 0 1 ${x} ${baseline - radiusY} V ${y + radiusY} A ${radiusX} ${radiusY} 0 0 1 ${x + radiusX} ${y} Z`
   }
   function xPct(i: number) {
     return (xv(i) / W) * 100
@@ -6204,9 +6220,7 @@ function HourlySalesChart({
       <div className="flex gap-[0px] w-full">
         {/* Y-axis labels */}
         <div
-          className={`relative shrink-0 font-['Inter:Regular'] leading-none ${
-            largeLabels ? "text-[14px]" : "text-[10px]"
-          }`}
+          className="relative shrink-0 font-['Inter:Regular'] text-[11px] leading-none"
           style={{
             width: Y_LABEL_W,
             height: H,
@@ -6214,13 +6228,13 @@ function HourlySalesChart({
           }}
         >
           {Y_TICKS.map((f) => {
-            const val = Math.round(maxVal * 1.05 * f)
+            const val = Math.round(axisMax * f)
             const top = PAD_T + (1 - f) * (H - PAD_T - PAD_B)
             return (
               <span
                 key={f}
-                className="absolute right-[6px] -translate-y-1/2"
-                style={{ top }}
+                className={`absolute right-[6px] ${f !== 1 && f !== 0 ? "-translate-y-1/2" : ""}`}
+                style={{ top: f === 0 ? top - 14 : top }}
               >
                 {metric === "Order count"
                   ? val.toLocaleString("en-AU")
@@ -6257,7 +6271,7 @@ function HourlySalesChart({
                     y1={y}
                     x2={W}
                     y2={y}
-                    stroke={REPORT_CHART_COLORS.grid}
+                    stroke="#EDEAE4"
                     strokeWidth="0.6"
                   />
                 )
@@ -6271,7 +6285,10 @@ function HourlySalesChart({
                     <path
                       key={`previous-${index}`}
                       d={barPath(xv(index) - groupGap / 2 - barW, y, barW)}
-                      fill={REPORT_CHART_COLORS.other}
+                      fill="#EDF6FF"
+                      stroke="#90CEFF"
+                      strokeWidth="1"
+                      vectorEffect="non-scaling-stroke"
                     />
                   )
                 })}
@@ -6297,7 +6314,7 @@ function HourlySalesChart({
                 return (
                   <rect
                     key={i}
-                    x={i * slotW}
+                    x={PAD_L + i * slotW}
                     y={0}
                     width={slotW}
                     height={H}
@@ -6393,11 +6410,9 @@ function HourlySalesChart({
       <div className="flex gap-[0px] w-full">
         <div style={{ width: Y_LABEL_W }} className="shrink-0" />
         <div
-          className={`relative flex-1 min-w-0 font-['Inter:Regular'] ${
-            largeLabels ? "text-[14px]" : "text-[11px]"
-          }`}
+          className="relative min-w-0 flex-1 font-['Inter:Regular'] text-[11px]"
           style={{
-            height: largeLabels ? 20 : 16,
+            height: 16,
             color: REPORT_CHART_COLORS.axis,
           }}
         >
@@ -6407,7 +6422,7 @@ function HourlySalesChart({
               <span
                 key={label}
                 className="absolute -translate-x-1/2"
-                style={{ left: `${xPct(dataIdx)}%` }}
+                style={{ left: `${(xv(dataIdx) / W) * 100}%` }}
               >
                 {label}
               </span>
@@ -6444,20 +6459,20 @@ function HourlySalesTable({
   const currentOrders = getHourlyMetricData("Order count").current
   const previousOrders = getHourlyMetricData("Order count").previous
   const chartHours = new Map(
-    Array.from({ length: currentData.length / 2 }, (_, index) => [
+    Array.from({ length: Math.ceil(currentData.length / 2) }, (_, index) => [
       (Number(HALF_HOURS[index * 2].match(/^(\d+):/)?.[1]) % 12) +
         (HALF_HOURS[index * 2].includes("PM") ? 12 : 0),
       {
         current:
           metric === "Average sale"
-            ? (CURRENT_DATA[index * 2] + CURRENT_DATA[index * 2 + 1]) /
-              (currentOrders[index * 2] + currentOrders[index * 2 + 1])
-            : currentData[index * 2] + currentData[index * 2 + 1],
+            ? (CURRENT_DATA[index * 2] + (CURRENT_DATA[index * 2 + 1] ?? 0)) /
+              (currentOrders[index * 2] + (currentOrders[index * 2 + 1] ?? 0))
+            : currentData[index * 2] + (currentData[index * 2 + 1] ?? 0),
         previous:
           metric === "Average sale"
-            ? (PREV_DATA[index * 2] + PREV_DATA[index * 2 + 1]) /
-              (previousOrders[index * 2] + previousOrders[index * 2 + 1])
-            : previousData[index * 2] + previousData[index * 2 + 1],
+            ? (PREV_DATA[index * 2] + (PREV_DATA[index * 2 + 1] ?? 0)) /
+              (previousOrders[index * 2] + (previousOrders[index * 2 + 1] ?? 0))
+            : previousData[index * 2] + (previousData[index * 2 + 1] ?? 0),
       },
     ]),
   )
@@ -9126,7 +9141,7 @@ function ReportsPrototype() {
 
                   {/* Hourly sales chart */}
                   <WidgetCard className="w-full">
-                    <div className="border border-[#e3e2dd] flex flex-col gap-[16px] items-start p-[16px] rounded-[8px] w-full">
+                    <div className="flex w-full flex-col items-start gap-[24px] rounded-[12px] border border-[#e3e2dd] p-[16px]">
                       <div className="flex gap-[8px] items-center w-full">
                         <div className="flex flex-1 min-w-0 items-center gap-[4px]">
                           <span className="truncate font-['Inter:Medium'] text-[#62615d] text-[12px] leading-[16px]">
@@ -9134,14 +9149,6 @@ function ReportsPrototype() {
                           </span>
                           <InfoIcon tooltip="Total sales revenue broken down by hour" />
                         </div>
-                        <button
-                          type="button"
-                          aria-label="Export"
-                          onClick={() => setToast("CSV file downloaded")}
-                          className="flex h-[32px] items-center rounded-[8px] border border-[#e3e2dd] bg-white px-[12px] font-['Inter:Medium'] text-[14px] leading-[20px] text-[#22201f] shadow-[0px_1px_0px_0px_rgba(0,0,0,0.06)] transition-colors hover:bg-[#f9f8f4]"
-                        >
-                          Export
-                        </button>
                         <MetricMoreMenu
                           onExportPng={() => setToast("PNG export selected")}
                           onViewMethodology={() =>
